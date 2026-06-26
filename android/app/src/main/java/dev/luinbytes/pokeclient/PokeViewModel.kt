@@ -138,15 +138,14 @@ class PokeViewModel(application: Application) : AndroidViewModel(application) {
         sessionSettings = newSettings
         _uiState.update {
             it.copy(
-                status = if (saved) "Settings saved" else "Using local QA backend",
-                setupSaved = saved
+                status = if (saved) "Settings saved" else "Using local QA backend"
             )
         }
 
         val registered = runCatching { backend.registerDevice(newSettings, android.os.Build.MODEL) }.getOrDefault(false)
         val healthy = runCatching { backend.health(newSettings.backendBaseUrl) }.getOrDefault(false)
         val status = when {
-            newSettings.backendBaseUrl.isBlank() -> "Direct-send mode ready"
+            newSettings.backendBaseUrl.isBlank() -> "Backend URL required"
             registered && healthy -> "Backend connected"
             healthy -> "Backend reachable, device registration failed"
             else -> "Backend not reachable"

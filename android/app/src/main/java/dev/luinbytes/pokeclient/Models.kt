@@ -36,7 +36,6 @@ data class SendResult(
 
 data class UiState(
     val status: String = "Ready",
-    val setupSaved: Boolean = false,
     val backendConnected: Boolean = false,
     val sending: Boolean = false
 )
