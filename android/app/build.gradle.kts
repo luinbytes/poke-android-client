@@ -1,12 +1,11 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
     namespace = "dev.luinbytes.pokeclient"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "dev.luinbytes.pokeclient"
@@ -26,8 +25,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
 }
 
@@ -40,7 +41,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("io.github.kyant0:backdrop:1.0.0")
+    implementation("io.github.kyant0:backdrop:2.0.0")
+    implementation("io.github.kyant0:shapes:1.2.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")

@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Arrangement
@@ -32,7 +33,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -51,10 +51,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -64,6 +68,7 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
+import com.kyant.shapes.RoundedRectangle
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -114,7 +119,7 @@ private fun PokeApp(viewModel: PokeViewModel, intent: Intent?) {
                     .layerBackdrop(backdrop)
                     .background(
                         Brush.linearGradient(
-                            listOf(Color(0xFFEAF4FF), Color(0xFFE9FFF6), Color(0xFFFFF1F5))
+                            listOf(Color(0xFFF8FBFF), Color(0xFFEAF9F3), Color(0xFFFFF8FA))
                         )
                     )
             )
@@ -176,38 +181,57 @@ private fun ChatHeader(
     onSetup: () -> Unit,
     onClear: () -> Unit
 ) {
-    LiquidPanel(backdrop, Modifier.fillMaxWidth(), 0.dp) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        LiquidGlassSurface(
+            backdrop = backdrop,
+            modifier = Modifier.weight(1f),
+            cornerRadius = 34.dp
         ) {
-            Box(
+            Row(
                 modifier = Modifier
-                    .size(42.dp)
-                    .background(if (connected) Color(0xFF0A84FF) else Color(0xFF7C8798), CircleShape),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("P", color = Color.White, fontWeight = FontWeight.Bold)
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(if (connected) Color(0xFF0A84FF) else Color(0xFF7C8798), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("P", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp)
+                ) {
+                    Text("Poke", fontWeight = FontWeight.Bold, color = Color(0xFF101828))
+                    Text(
+                        status,
+                        color = Color(0xFF667085),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp)
+        }
+        LiquidGlassSurface(backdrop = backdrop, cornerRadius = 28.dp) {
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Poke", fontWeight = FontWeight.Bold, color = Color(0xFF101828))
-                Text(
-                    status,
-                    color = Color(0xFF667085),
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                TextButton(onClick = onClear) { Text("Clear") }
+                TextButton(onClick = onSetup) { Text("Setup") }
             }
-            TextButton(onClick = onClear) { Text("Clear") }
-            TextButton(onClick = onSetup) { Text("Setup") }
         }
     }
 }
@@ -341,36 +365,54 @@ private fun MessageBubble(
 @Composable
 private fun Composer(backdrop: LayerBackdrop, sending: Boolean, initialText: String, onSend: (String) -> Unit) {
     var text by rememberSaveable(initialText) { mutableStateOf(initialText) }
-    LiquidPanel(backdrop, Modifier.fillMaxWidth(), 0.dp) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(10.dp),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        LiquidGlassSurface(
+            backdrop = backdrop,
+            modifier = Modifier.weight(1f),
+            cornerRadius = 34.dp
         ) {
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxWidth(),
                 minLines = 1,
                 maxLines = 5,
                 shape = RoundedCornerShape(24.dp),
                 placeholder = { Text("Message Poke") }
             )
-            Button(
-                onClick = {
-                    val outbound = text
-                    text = ""
-                    onSend(outbound)
-                },
-                enabled = text.isNotBlank() && !sending,
-                shape = RoundedCornerShape(24.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A84FF)),
-                modifier = Modifier.width(96.dp)
-            ) {
-                Text(if (sending) "..." else "Send", maxLines = 1)
+        }
+        LiquidGlassSurface(
+            backdrop = backdrop,
+            modifier = Modifier
+                .width(92.dp)
+                .height(64.dp)
+                .then(
+                    if (text.isNotBlank() && !sending) {
+                        Modifier.clickable {
+                            val outbound = text
+                            text = ""
+                            onSend(outbound)
+                        }
+                    } else {
+                        Modifier
+                    }
+                ),
+            cornerRadius = 32.dp
+        ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    if (sending) "..." else "Send",
+                    color = Color(0xFF344054).copy(alpha = if (text.isNotBlank() && !sending) 1f else 0.58f),
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
             }
         }
     }
@@ -386,7 +428,13 @@ private fun SetupSheet(
     var backendUrl by rememberSaveable(settings.backendBaseUrl) { mutableStateOf(settings.backendBaseUrl) }
     var pokeUserId by rememberSaveable(settings.pokeUserId) { mutableStateOf(settings.pokeUserId) }
 
-    LiquidPanel(backdrop, Modifier.fillMaxWidth(), 28.dp) {
+    LiquidGlassSurface(
+        backdrop = backdrop,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp),
+        cornerRadius = 34.dp
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -423,24 +471,52 @@ private fun SetupSheet(
 }
 
 @Composable
-private fun LiquidPanel(
+private fun LiquidGlassSurface(
     backdrop: LayerBackdrop,
     modifier: Modifier = Modifier,
-    cornerRadius: androidx.compose.ui.unit.Dp,
+    cornerRadius: Dp,
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(
-        modifier.drawBackdrop(
-            backdrop = backdrop,
-            shape = { RoundedCornerShape(cornerRadius) },
-            effects = {
-                vibrancy()
-                blur(10.dp.toPx())
-                lens(10.dp.toPx(), 18.dp.toPx())
+        modifier
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { RoundedRectangle(cornerRadius) },
+                effects = {
+                    vibrancy()
+                    blur(2.dp.toPx())
+                    lens(22.dp.toPx(), 46.dp.toPx(), depthEffect = true, chromaticAberration = true)
+                },
+                highlight = { Highlight.Default },
+                onDrawSurface = {
+                    drawRect(Color.White.copy(alpha = 0.18f))
+                    drawRect(
+                        brush = Brush.linearGradient(
+                            colors = listOf(Color.White.copy(alpha = 0.42f), Color.Transparent),
+                            start = Offset.Zero,
+                            end = Offset(size.width * 0.7f, size.height * 0.7f)
+                        )
+                    )
+                }
+            )
+            .drawWithContent {
+                drawContent()
+                val radius = cornerRadius.toPx()
+                drawRoundRect(
+                    brush = Brush.linearGradient(
+                        colors = listOf(Color.White.copy(alpha = 0.82f), Color.Transparent),
+                        start = Offset.Zero,
+                        end = Offset(size.width, size.height)
+                    ),
+                    cornerRadius = CornerRadius(radius, radius),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.6.dp.toPx())
+                )
+                drawRoundRect(
+                    color = Color.Black.copy(alpha = 0.10f),
+                    cornerRadius = CornerRadius(radius, radius),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.8.dp.toPx())
+                )
             },
-            highlight = { Highlight.Plain },
-            onDrawSurface = { drawRect(Color.White.copy(alpha = 0.62f)) }
-        ),
         content = content
     )
 }
@@ -449,7 +525,8 @@ private fun conversationRows(messages: List<ChatMessage>): List<ConversationRow>
     val rows = mutableListOf<ConversationRow>()
     var lastTime: Long? = null
     messages.sortedBy { it.createdAt }.forEach { message ->
-        if (lastTime == null || !sameDay(lastTime!!, message.createdAt)) {
+        val previousTime = lastTime
+        if (previousTime == null || !sameDay(previousTime, message.createdAt)) {
             rows += ConversationRow.Day(formatDay(message.createdAt))
         }
         rows += ConversationRow.Message(message)
