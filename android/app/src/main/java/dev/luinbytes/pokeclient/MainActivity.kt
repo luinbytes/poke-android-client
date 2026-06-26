@@ -6,7 +6,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,24 +17,30 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.AssistChip
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -44,260 +51,438 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
-    private val viewModel by viewModels<PokeViewModel>()
+    private val viewModel: PokeViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val sharedText = intent.takeIf { it.action == Intent.ACTION_SEND }
-            ?.getStringExtra(Intent.EXTRA_TEXT)
-            .orEmpty()
         setContent {
-            MaterialTheme {
-                PokeApp(viewModel, sharedText)
-            }
+            PokeApp(viewModel, intent)
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
+}
+
+private sealed class ConversationRow {
+    data class Day(val label: String) : ConversationRow()
+    data class Message(val value: ChatMessage) : ConversationRow()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PokeApp(viewModel: PokeViewModel, sharedText: String) {
+private fun PokeApp(viewModel: PokeViewModel, intent: Intent?) {
     val settings by viewModel.settings.collectAsState()
     val messages by viewModel.messages.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
-    var setupVisible by rememberSaveable { mutableStateOf(settings.backendBaseUrl.isBlank() || settings.pokeUserId.isBlank()) }
-    var draft by remember { mutableStateOf(sharedText) }
+    var setupVisible by rememberSaveable { mutableStateOf(settings.backendBaseUrl.isBlank()) }
 
     LaunchedEffect(settings.backendBaseUrl, settings.pokeUserId) {
-        viewModel.observeBackend(settings)
         if (settings.backendBaseUrl.isNotBlank() && settings.pokeUserId.isNotBlank()) {
             setupVisible = false
+            viewModel.observeBackend(settings)
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Poke") },
-                actions = {
-                    TextButton(onClick = viewModel::clearConversation) {
-                        Text("Clear")
-                    }
-                    TextButton(onClick = { setupVisible = !setupVisible }) {
-                        Text(if (setupVisible) "Chat" else "Setup")
-                    }
-                }
+    MaterialTheme {
+        val backdrop = rememberLayerBackdrop()
+        Box(Modifier.fillMaxSize()) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .layerBackdrop(backdrop)
+                    .background(
+                        Brush.linearGradient(
+                            listOf(Color(0xFFEAF4FF), Color(0xFFE9FFF6), Color(0xFFFFF1F5))
+                        )
+                    )
             )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFFF8F7F4))
-                .padding(padding)
-        ) {
-            StatusStrip(uiState)
-            if (setupVisible) {
-                SetupPane(settings, onSave = {
-                    viewModel.saveSettings(it)
-                    setupVisible = false
-                }, onUseLocalQa = {
-                    viewModel.useLocalQaSettings()
-                    setupVisible = false
-                })
-            } else {
-                ChatPane(
+            Scaffold(
+                containerColor = Color.Transparent,
+                topBar = {
+                    ChatHeader(
+                        backdrop = backdrop,
+                        status = uiState.status,
+                        connected = uiState.backendConnected,
+                        onSetup = { setupVisible = true },
+                        onClear = viewModel::clearConversation
+                    )
+                },
+                bottomBar = {
+                    Composer(
+                        backdrop = backdrop,
+                        sending = uiState.sending,
+                        initialText = intent?.getStringExtra(Intent.EXTRA_TEXT).orEmpty(),
+                        onSend = viewModel::send
+                    )
+                }
+            ) { padding ->
+                Conversation(
                     messages = messages,
-                    uiState = uiState,
-                    draft = draft,
-                    onDraftChange = { draft = it },
-                    onSend = {
-                        viewModel.send(draft)
-                        draft = ""
-                    },
+                    onRetry = viewModel::retry,
                     onAction = viewModel::performAction,
-                    onRetry = viewModel::retry
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
                 )
             }
-        }
-    }
-}
 
-@Composable
-fun StatusStrip(uiState: UiState) {
-    Surface(
-        color = if (uiState.backendConnected) Color(0xFFE3F8EA) else Color(0xFFFFF4D8),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(
-            text = uiState.status,
-            style = MaterialTheme.typography.labelMedium,
-            color = Color(0xFF344054),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-    }
-}
-
-@Composable
-fun SetupPane(
-    settings: AppSettings,
-    onSave: (AppSettings) -> Unit,
-    onUseLocalQa: () -> Unit
-) {
-    var backend by remember(settings.backendBaseUrl) { mutableStateOf(settings.backendBaseUrl) }
-    var pokeUserId by remember(settings.pokeUserId) { mutableStateOf(settings.pokeUserId) }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Text("Connect Poke", style = MaterialTheme.typography.headlineMedium)
-        Text("Connect to the companion backend. The backend keeps the Poke API key and handles bidirectional delivery.")
-        OutlinedTextField(
-            value = backend,
-            onValueChange = { backend = it },
-            label = { Text("Backend URL") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        OutlinedTextField(
-            value = pokeUserId,
-            onValueChange = { pokeUserId = it },
-            label = { Text("Poke user ID") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Button(onClick = { onSave(AppSettings(backendBaseUrl = backend, pokeUserId = pokeUserId)) }) {
-            Text("Save")
-        }
-        if (BuildConfig.DEBUG) {
-            OutlinedButton(onClick = onUseLocalQa) {
-                Text("Use local QA backend")
-            }
-        }
-    }
-}
-
-@Composable
-fun ChatPane(
-    messages: List<ChatMessage>,
-    uiState: UiState,
-    draft: String,
-    onDraftChange: (String) -> Unit,
-    onSend: () -> Unit,
-    onAction: (String, RichAction) -> Unit,
-    onRetry: (String) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        if (messages.isEmpty()) {
-            EmptyState(Modifier.weight(1f))
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                item { Spacer(Modifier.height(8.dp)) }
-                items(messages, key = { it.id }) { message ->
-                    MessageBubble(message, onAction, onRetry)
+            if (setupVisible) {
+                ModalBottomSheet(
+                    onDismissRequest = { setupVisible = false },
+                    containerColor = Color.Transparent
+                ) {
+                    SetupSheet(
+                        backdrop = backdrop,
+                        settings = settings,
+                        onSave = viewModel::saveSettings,
+                        onUseLocal = {
+                            setupVisible = false
+                            viewModel.useLocalQaSettings()
+                        }
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ChatHeader(
+    backdrop: LayerBackdrop,
+    status: String,
+    connected: Boolean,
+    onSetup: () -> Unit,
+    onClear: () -> Unit
+) {
+    LiquidPanel(backdrop, Modifier.fillMaxWidth(), 0.dp) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(12.dp),
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .background(if (connected) Color(0xFF0A84FF) else Color(0xFF7C8798), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("P", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp)
+            ) {
+                Text("Poke", fontWeight = FontWeight.Bold, color = Color(0xFF101828))
+                Text(
+                    status,
+                    color = Color(0xFF667085),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            TextButton(onClick = onClear) { Text("Clear") }
+            TextButton(onClick = onSetup) { Text("Setup") }
+        }
+    }
+}
+
+@Composable
+private fun Conversation(
+    messages: List<ChatMessage>,
+    onRetry: (String) -> Unit,
+    onAction: (String, RichAction) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val rows = remember(messages) { conversationRows(messages) }
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(rows.size) {
+        if (rows.isNotEmpty()) listState.animateScrollToItem(rows.lastIndex)
+    }
+
+    if (rows.isEmpty()) {
+        Box(modifier, contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("No messages yet", fontWeight = FontWeight.Bold, color = Color(0xFF101828))
+                Text("Send a message when Poke is connected.", color = Color(0xFF667085))
+            }
+        }
+        return
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = modifier.padding(horizontal = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item { Spacer(Modifier.height(4.dp)) }
+        items(rows, key = { row -> rowKey(row) }) { row ->
+            when (row) {
+                is ConversationRow.Day -> DaySeparator(row.label)
+                is ConversationRow.Message -> MessageBubble(row.value, onRetry, onAction)
+            }
+        }
+        item { Spacer(Modifier.height(8.dp)) }
+    }
+}
+
+@Composable
+private fun DaySeparator(label: String) {
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Surface(color = Color(0xFFE8EDF5), shape = RoundedCornerShape(16.dp)) {
+            Text(
+                label,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                color = Color(0xFF667085),
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+    }
+}
+
+@Composable
+private fun MessageBubble(
+    message: ChatMessage,
+    onRetry: (String) -> Unit,
+    onAction: (String, RichAction) -> Unit
+) {
+    if (message.direction == MessageDirection.System) {
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Surface(color = Color(0xFFE8EDF5), shape = RoundedCornerShape(18.dp)) {
+                Text(
+                    message.text,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                    color = Color(0xFF475467),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+        return
+    }
+
+    val outbound = message.direction == MessageDirection.Outbound
+    val bubbleColor = if (outbound) Color(0xFF0A84FF) else Color.White
+    val textColor = if (outbound) Color.White else Color(0xFF101828)
+    val metaColor = if (outbound) Color(0xCCEAF2FF) else Color(0xFF667085)
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = if (outbound) Alignment.End else Alignment.Start
+    ) {
+        Surface(
+            color = bubbleColor,
+            shape = RoundedCornerShape(
+                topStart = 20.dp,
+                topEnd = 20.dp,
+                bottomStart = if (outbound) 20.dp else 6.dp,
+                bottomEnd = if (outbound) 6.dp else 20.dp
+            ),
+            shadowElevation = if (outbound) 0.dp else 1.dp,
+            modifier = Modifier.widthIn(max = 312.dp)
+        ) {
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Text(message.text, color = textColor)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    metaLabel(message),
+                    color = metaColor,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
+        if (message.status == MessageStatus.Failed) {
+            TextButton(onClick = { onRetry(message.id) }) { Text("Retry") }
+        }
+        if (!outbound && message.actions.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .widthIn(max = 312.dp)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                message.actions.forEach { action ->
+                    AssistChip(
+                        onClick = { onAction(message.id, action) },
+                        label = { Text(action.label) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Composer(backdrop: LayerBackdrop, sending: Boolean, initialText: String, onSend: (String) -> Unit) {
+    var text by rememberSaveable(initialText) { mutableStateOf(initialText) }
+    LiquidPanel(backdrop, Modifier.fillMaxWidth(), 0.dp) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(10.dp),
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             OutlinedTextField(
-                value = draft,
-                onValueChange = onDraftChange,
+                value = text,
+                onValueChange = { text = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Message Poke") },
                 minLines = 1,
-                maxLines = 5
+                maxLines = 5,
+                shape = RoundedCornerShape(24.dp),
+                placeholder = { Text("Message Poke") }
             )
-            Button(onClick = onSend, enabled = draft.isNotBlank() && !uiState.sending) {
-                Text(if (uiState.sending) "..." else "Send")
+            Button(
+                onClick = {
+                    val outbound = text
+                    text = ""
+                    onSend(outbound)
+                },
+                enabled = text.isNotBlank() && !sending,
+                shape = RoundedCornerShape(24.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A84FF)),
+                modifier = Modifier.width(96.dp)
+            ) {
+                Text(if (sending) "..." else "Send", maxLines = 1)
             }
         }
     }
 }
 
 @Composable
-fun EmptyState(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(28.dp),
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text("Ready for Poke", style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Send a message, then test inbound delivery by posting a webhook event to the companion backend.",
-            color = Color(0xFF667085)
-        )
-    }
-}
-
-@Composable
-fun MessageBubble(
-    message: ChatMessage,
-    onAction: (String, RichAction) -> Unit,
-    onRetry: (String) -> Unit
+private fun SetupSheet(
+    backdrop: LayerBackdrop,
+    settings: AppSettings,
+    onSave: (AppSettings) -> Unit,
+    onUseLocal: () -> Unit
 ) {
-    val outbound = message.direction == MessageDirection.Outbound
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = when {
-            message.direction == MessageDirection.System -> Arrangement.Center
-            outbound -> Arrangement.End
-            else -> Arrangement.Start
-        }
-    ) {
-        Surface(
-            color = when (message.direction) {
-                MessageDirection.Outbound -> Color(0xFFDCF3E4)
-                MessageDirection.System -> Color(0xFFEAF1FF)
-                MessageDirection.Inbound -> Color.White
-            },
-            shape = RoundedCornerShape(22.dp),
-            tonalElevation = 1.dp,
-            modifier = Modifier.widthIn(max = 300.dp)
+    var backendUrl by rememberSaveable(settings.backendBaseUrl) { mutableStateOf(settings.backendBaseUrl) }
+    var pokeUserId by rememberSaveable(settings.pokeUserId) { mutableStateOf(settings.pokeUserId) }
+
+    LiquidPanel(backdrop, Modifier.fillMaxWidth(), 28.dp) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                Text(message.text)
-                Text(
-                    text = message.status.name.lowercase(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF667085)
-                )
-                if (message.direction == MessageDirection.Outbound && message.status == MessageStatus.Failed) {
-                    Spacer(Modifier.height(6.dp))
-                    AssistChip(
-                        onClick = { onRetry(message.id) },
-                        label = { Text("Retry") }
-                    )
+            Text("Connect Poke", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+            OutlinedTextField(
+                value = backendUrl,
+                onValueChange = { backendUrl = it },
+                label = { Text("Backend URL") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = pokeUserId,
+                onValueChange = { pokeUserId = it },
+                label = { Text("Poke user ID") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { onSave(AppSettings(backendUrl.trim(), pokeUserId.trim())) }) {
+                    Text("Save")
                 }
-                if (message.actions.isNotEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        message.actions.forEach { action ->
-                            AssistChip(
-                                onClick = { onAction(message.id, action) },
-                                label = { Text(action.label) }
-                            )
-                        }
-                    }
+                TextButton(onClick = onUseLocal) {
+                    Text("Local QA")
                 }
             }
+            Spacer(Modifier.height(8.dp))
         }
     }
+}
+
+@Composable
+private fun LiquidPanel(
+    backdrop: LayerBackdrop,
+    modifier: Modifier = Modifier,
+    cornerRadius: androidx.compose.ui.unit.Dp,
+    content: @Composable BoxScope.() -> Unit
+) {
+    Box(
+        modifier.drawBackdrop(
+            backdrop = backdrop,
+            shape = { RoundedCornerShape(cornerRadius) },
+            effects = {
+                vibrancy()
+                blur(10.dp.toPx())
+                lens(10.dp.toPx(), 18.dp.toPx())
+            },
+            highlight = { Highlight.Plain },
+            onDrawSurface = { drawRect(Color.White.copy(alpha = 0.62f)) }
+        ),
+        content = content
+    )
+}
+
+private fun conversationRows(messages: List<ChatMessage>): List<ConversationRow> {
+    val rows = mutableListOf<ConversationRow>()
+    var lastTime: Long? = null
+    messages.sortedBy { it.createdAt }.forEach { message ->
+        if (lastTime == null || !sameDay(lastTime!!, message.createdAt)) {
+            rows += ConversationRow.Day(formatDay(message.createdAt))
+        }
+        rows += ConversationRow.Message(message)
+        lastTime = message.createdAt
+    }
+    return rows
+}
+
+private fun rowKey(row: ConversationRow): String = when (row) {
+    is ConversationRow.Day -> "day-${row.label}"
+    is ConversationRow.Message -> row.value.id
+}
+
+private fun metaLabel(message: ChatMessage): String {
+    val time = formatTime(message.createdAt)
+    val status = when (message.status) {
+        MessageStatus.Sending -> "sending"
+        MessageStatus.Sent -> "sent"
+        MessageStatus.Failed -> "failed"
+        MessageStatus.Received -> "received"
+    }
+    return if (message.direction == MessageDirection.Outbound) "$time - $status" else time
+}
+
+private fun formatDay(time: Long): String =
+    SimpleDateFormat("EEE, MMM d", Locale.getDefault()).format(Date(time))
+
+private fun formatTime(time: Long): String =
+    SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(time))
+
+private fun sameDay(a: Long, b: Long): Boolean {
+    val first = Calendar.getInstance().apply { timeInMillis = a }
+    val second = Calendar.getInstance().apply { timeInMillis = b }
+    return first.get(Calendar.YEAR) == second.get(Calendar.YEAR) &&
+        first.get(Calendar.DAY_OF_YEAR) == second.get(Calendar.DAY_OF_YEAR)
 }

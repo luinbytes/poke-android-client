@@ -17,6 +17,7 @@ import java.io.BufferedReader
 import java.io.IOException
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -171,7 +172,7 @@ class BackendClient(
                 "failed" -> MessageStatus.Failed
                 else -> MessageStatus.Received
             },
-            createdAt = System.currentTimeMillis(),
+            createdAt = runCatching { Instant.parse(obj.optString("createdAt")).toEpochMilli() }.getOrDefault(System.currentTimeMillis()),
             actions = actions
         )
     }
