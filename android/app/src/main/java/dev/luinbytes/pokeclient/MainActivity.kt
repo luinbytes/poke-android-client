@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.BoxScope
@@ -378,14 +379,21 @@ private fun Composer(backdrop: LayerBackdrop, sending: Boolean, initialText: Str
             modifier = Modifier.weight(1f),
             cornerRadius = 34.dp
         ) {
-            OutlinedTextField(
+            BasicTextField(
                 value = text,
                 onValueChange = { text = it },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFF344054)),
                 minLines = 1,
                 maxLines = 5,
-                shape = RoundedCornerShape(24.dp),
-                placeholder = { Text("Message Poke") }
+                decorationBox = { innerTextField ->
+                    if (text.isBlank()) {
+                        Text("Message Poke", color = Color(0xFF667085), style = MaterialTheme.typography.bodyLarge)
+                    }
+                    innerTextField()
+                }
             )
         }
         LiquidGlassSurface(
