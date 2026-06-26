@@ -1,12 +1,12 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { URL } from "node:url";
-import { z } from "zod";
+import * as z from "zod/v4";
 import { AppDatabase } from "./database.js";
 import { EventBus } from "./event-bus.js";
 import { loadEnv } from "./env.js";
-import { JsonRpcClient } from "./json-rpc.js";
+import { PokeApiClient, type PokeMessageSender } from "./poke-api.js";
+import { PokeMcpBridge } from "./poke-mcp.js";
 import { LoggingPushGateway } from "./push.js";
-import { PokeSseClient } from "./poke-sse-client.js";
 
 const DeviceRegistration = z.object({
   pokeUserId: z.string().min(1),
@@ -32,13 +32,14 @@ const HandlerEvent = z.object({
 export function createApp(deps?: {
   db?: AppDatabase;
   bus?: EventBus;
-  rpc?: JsonRpcClient;
+  pokeApi?: PokeMessageSender;
 }) {
   const env = loadEnv();
   const db = deps?.db ?? new AppDatabase(env.databasePath);
   const bus = deps?.bus ?? new EventBus();
-  const rpc = deps?.rpc ?? new JsonRpcClient(env.pokeJsonRpcUrl, env.pokeJsonRpcBearerToken);
   const push = new LoggingPushGateway();
+  const pokeApi = deps?.pokeApi ?? new PokeApiClient(env.pokeApiKey);
+  const mcp = new PokeMcpBridge({ db, bus, push });
 
   async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
@@ -58,16 +59,26 @@ export function createApp(deps?: {
           eventType: "message",
           payload: { direction: "outbound", text: input.text },
           correlationId: input.correlationId ?? null,
-          deliveryState: rpc.configured ? "queued" : "delivered"
+          deliveryState: "queued"
         });
-        if (rpc.configured) {
-          await rpc.call("tools/call", {
-            name: "send_message",
-            arguments: { text: input.text, correlationId: local.eventId }
+        bus.publish(local);
+
+        const result = await pokeApi.sendMessage(input.text);
+        const deliveryState = result.ok ? "delivered" : "failed";
+        const updated = db.updateEventDeliveryState(local.eventId, deliveryState, {
+          direction: "outbound",
+          text: input.text,
+          upstreamStatus: result.upstreamStatus,
+          upstreamBody: result.upstreamBody
+        }) ?? local;
+        bus.publish(updated);
+        if (!result.ok) {
+          return json(res, result.upstreamStatus === 401 || result.upstreamStatus === 403 ? 502 : 503, {
+            error: result.message,
+            event: updated
           });
         }
-        bus.publish(local);
-        return json(res, 202, { event: local, rpcForwarded: rpc.configured });
+        return json(res, 202, { event: updated });
       }
       if (req.method === "GET" && url.pathname === "/api/events/history") {
         const pokeUserId = requiredQuery(url, "pokeUserId");
@@ -127,7 +138,10 @@ export function createApp(deps?: {
         });
       }
       if (req.method === "GET" && url.pathname === "/poke/sse") {
-        return pokeIntegrationSse(req, res);
+        return await mcp.handleSse(req, res);
+      }
+      if (req.method === "POST" && url.pathname === "/poke/messages") {
+        return await mcp.handleMessage(req, res);
       }
       return json(res, 404, { error: "not_found" });
     } catch (error) {
@@ -161,20 +175,6 @@ function streamEvents(
     clearInterval(heartbeat);
     unsubscribe();
   });
-}
-
-function pokeIntegrationSse(req: IncomingMessage, res: ServerResponse): void {
-  res.writeHead(200, {
-    "content-type": "text/event-stream",
-    "cache-control": "no-cache, no-transform",
-    connection: "keep-alive"
-  });
-  writeSse(res, "ready", "ready", {
-    name: "Poke Android Client",
-    tools: ["deliver_message", "deliver_action", "deliver_status", "request_client_context"]
-  });
-  const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 25_000);
-  req.on("close", () => clearInterval(heartbeat));
 }
 
 function writeSse(res: ServerResponse, event: string, id: string, data: unknown): void {
@@ -212,15 +212,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const app = createApp();
   const server = createServer((req, res) => void app.route(req, res));
   server.listen(env.port, () => console.info(`Poke Android backend listening on :${env.port}`));
-
-  const sse = new PokeSseClient(
-    {
-      url: process.env.POKE_SSE_URL,
-      pokeUserId: process.env.POKE_USER_ID
-    },
-    app.db,
-    app.bus,
-    new LoggingPushGateway()
-  );
-  void sse.start();
 }

@@ -106,6 +106,19 @@ export class AppDatabase {
     return row ? rowToEvent(row) : null;
   }
 
+  updateEventDeliveryState(eventId: string, deliveryState: DeliveryState, payload?: unknown): ConversationEvent | null {
+    if (payload === undefined) {
+      this.db.prepare(
+        `UPDATE conversation_events SET delivery_state = ? WHERE event_id = ?`
+      ).run(deliveryState, eventId);
+    } else {
+      this.db.prepare(
+        `UPDATE conversation_events SET delivery_state = ?, payload_json = ? WHERE event_id = ?`
+      ).run(deliveryState, JSON.stringify(payload), eventId);
+    }
+    return this.getEvent(eventId);
+  }
+
   listEvents(pokeUserId: string, sinceEventId?: string): ConversationEvent[] {
     if (!sinceEventId) {
       return this.db.prepare(

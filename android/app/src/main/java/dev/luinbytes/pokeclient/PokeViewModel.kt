@@ -13,7 +13,6 @@ import kotlinx.coroutines.launch
 
 class PokeViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsStore = SettingsStore(application)
-    private val pokeApi = PokeApiClient()
     private val backend = BackendClient()
     private val chat = ChatRepository()
     private var streamJob: Job? = null
@@ -78,10 +77,8 @@ class PokeViewModel(application: Application) : AndroidViewModel(application) {
                 when {
                     current.backendBaseUrl.isNotBlank() && current.pokeUserId.isNotBlank() ->
                         backend.sendViaBackend(current, text)
-                    current.pokeApiKey.isNotBlank() ->
-                        pokeApi.send(current.pokeApiKey, text)
                     else ->
-                        SendResult(false, "Add a backend URL or Poke API key before sending")
+                        SendResult(false, "Add a backend URL and Poke user ID before sending")
                 }
             }.getOrElse { SendResult(false, it.message ?: "Send failed") }
             chat.replace(messageId) {

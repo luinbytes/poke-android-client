@@ -30,8 +30,8 @@ Apple Messages can make Poke feel immediate. Android RCS can be more variable. T
 
 ## Pieces
 
-- `android/app`: Kotlin + Jetpack Compose APK. It can send directly to Poke's API, register with the backend, render inbound events, and handle rich actions.
-- `backend`: Node 22 TypeScript service. It stores users/devices/events in SQLite, exposes Android APIs, webhook ingest, app-facing SSE, JSON-RPC helpers, and a Poke-facing SSE/message-handler scaffold.
+- `android/app`: Kotlin + Jetpack Compose APK. It registers with the backend, sends through the bridge, renders inbound events, and handles rich actions.
+- `backend`: Node 22 TypeScript service. It stores users/devices/events in SQLite, owns the Poke API key, exposes Android APIs, webhook ingest, app-facing SSE, and a Poke-facing MCP/SSE server.
 - `docs`: setup and architecture notes.
 
 ## Quick Start
@@ -41,6 +41,8 @@ Backend:
 ```bash
 cd backend
 npm install
+cp .env.example .env
+# edit .env, then export the values in your shell
 npm test
 npm run dev
 ```
@@ -70,8 +72,8 @@ Verified locally:
 
 Requires real Poke credentials/access:
 
-- direct `https://poke.com/api/v1/inbound/api-message` sends with a Poke API key
-- production Poke handler/SSE connection
+- backend `POKE_API_KEY` for `https://poke.com/api/v1/inbound/api-message`
+- local-tunnel or hosted Poke MCP/SSE registration for production Poke receive
 - production Firebase Cloud Messaging delivery
 
 See [docs/samsung-qa.md](docs/samsung-qa.md) for the Samsung QA notes.

@@ -11,7 +11,10 @@ class ChatRepository {
     val messages: StateFlow<List<ChatMessage>> = _messages
 
     fun add(message: ChatMessage) {
-        if (!seen.add(message.id)) return
+        if (!seen.add(message.id)) {
+            replace(message.id) { message }
+            return
+        }
         _messages.update { it + message }
     }
 

@@ -16,9 +16,10 @@ class ChatRepositoryTest {
         )
 
         repo.add(message)
-        repo.add(message.copy(text = "ignored"))
+        repo.add(message.copy(text = "updated", status = MessageStatus.Sent))
 
         assertEquals(1, repo.messages.value.size)
-        assertEquals("hello", repo.messages.value.single().text)
+        assertEquals("updated", repo.messages.value.single().text)
+        assertEquals(MessageStatus.Sent, repo.messages.value.single().status)
     }
 }

@@ -24,7 +24,6 @@ data class RichAction(
 )
 
 data class AppSettings(
-    val pokeApiKey: String = "",
     val backendBaseUrl: String = "",
     val pokeUserId: String = ""
 )

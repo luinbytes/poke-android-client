@@ -45,7 +45,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 
 class MainActivity : ComponentActivity() {
@@ -70,7 +69,7 @@ fun PokeApp(viewModel: PokeViewModel, sharedText: String) {
     val settings by viewModel.settings.collectAsState()
     val messages by viewModel.messages.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
-    var setupVisible by rememberSaveable { mutableStateOf(settings.pokeApiKey.isBlank()) }
+    var setupVisible by rememberSaveable { mutableStateOf(settings.backendBaseUrl.isBlank() || settings.pokeUserId.isBlank()) }
     var draft by remember { mutableStateOf(sharedText) }
 
     LaunchedEffect(settings.backendBaseUrl, settings.pokeUserId) {
@@ -146,7 +145,6 @@ fun SetupPane(
     onSave: (AppSettings) -> Unit,
     onUseLocalQa: () -> Unit
 ) {
-    var apiKey by remember(settings.pokeApiKey) { mutableStateOf(settings.pokeApiKey) }
     var backend by remember(settings.backendBaseUrl) { mutableStateOf(settings.backendBaseUrl) }
     var pokeUserId by remember(settings.pokeUserId) { mutableStateOf(settings.pokeUserId) }
     Column(
@@ -156,14 +154,7 @@ fun SetupPane(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text("Connect Poke", style = MaterialTheme.typography.headlineMedium)
-        Text("Use a Poke API key for direct sends. Add the companion backend and Poke user ID for bidirectional delivery.")
-        OutlinedTextField(
-            value = apiKey,
-            onValueChange = { apiKey = it },
-            label = { Text("Poke API key") },
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth()
-        )
+        Text("Connect to the companion backend. The backend keeps the Poke API key and handles bidirectional delivery.")
         OutlinedTextField(
             value = backend,
             onValueChange = { backend = it },
@@ -176,7 +167,7 @@ fun SetupPane(
             label = { Text("Poke user ID") },
             modifier = Modifier.fillMaxWidth()
         )
-        Button(onClick = { onSave(AppSettings(apiKey, backend, pokeUserId)) }) {
+        Button(onClick = { onSave(AppSettings(backendBaseUrl = backend, pokeUserId = pokeUserId)) }) {
             Text("Save")
         }
         if (BuildConfig.DEBUG) {

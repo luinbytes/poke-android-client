@@ -32,7 +32,6 @@ class SettingsStore(private val context: Context) {
     suspend fun save(settings: AppSettings) {
         withContext(Dispatchers.IO) {
             prefs.edit()
-                .putString(POKE_API_KEY, settings.pokeApiKey)
                 .putString(BACKEND_BASE_URL, settings.backendBaseUrl)
                 .putString(POKE_USER_ID, settings.pokeUserId)
                 .commit()
@@ -42,14 +41,12 @@ class SettingsStore(private val context: Context) {
 
     private fun read(): AppSettings {
         return AppSettings(
-            pokeApiKey = prefs.getString(POKE_API_KEY, "").orEmpty(),
             backendBaseUrl = prefs.getString(BACKEND_BASE_URL, "").orEmpty(),
             pokeUserId = prefs.getString(POKE_USER_ID, "").orEmpty()
         )
     }
 
     companion object {
-        private const val POKE_API_KEY = "poke_api_key"
         private const val BACKEND_BASE_URL = "backend_base_url"
         private const val POKE_USER_ID = "poke_user_id"
     }

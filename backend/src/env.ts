@@ -3,6 +3,7 @@ export type Env = {
   databasePath: string;
   publicBaseUrl: string;
   webhookSecret?: string;
+  pokeApiKey?: string;
   pokeJsonRpcUrl?: string;
   pokeJsonRpcBearerToken?: string;
 };
@@ -13,6 +14,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     databasePath: source.DATABASE_PATH ?? "./data/poke-client.db",
     publicBaseUrl: source.PUBLIC_BASE_URL ?? `http://localhost:${source.PORT ?? 8787}`,
     webhookSecret: emptyToUndefined(source.WEBHOOK_SECRET),
+    pokeApiKey: emptyToUndefined(source.POKE_API_KEY),
     pokeJsonRpcUrl: emptyToUndefined(source.POKE_JSON_RPC_URL),
     pokeJsonRpcBearerToken: emptyToUndefined(source.POKE_JSON_RPC_BEARER_TOKEN)
   };

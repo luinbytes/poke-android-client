@@ -3,17 +3,17 @@
 The app gives Poke users a dedicated Android path when RCS feels slower or less predictable than Apple Messages, while preserving bidirectional Poke interaction.
 
 ```text
-Android APK -> companion backend -> Poke JSON-RPC/API
-Poke SSE message handler -> companion backend -> FCM/SSE -> Android APK
+Android APK -> companion backend -> Poke inbound API
+Poke MCP/SSE tool calls -> companion backend -> app SSE/history -> Android APK
 ```
 
 ## Transport
 
-The companion backend owns the long-lived Poke-facing SSE session. Phones are not reliable places for this session because Android background work can be paused, killed, or delayed. The backend reconnect loop tracks the last event cursor and is structured for SEP-1699-style auto-reconnect behavior across load balancer timeouts.
+The companion backend owns the Poke-facing MCP/SSE integration. Phones are not reliable places for long-lived receive sessions because Android background work can be paused, killed, or delayed. Poke connects to `/poke/sse`, then posts MCP messages back to `/poke/messages`.
 
 ## Reading
 
-The backend normalizes incoming handler callbacks into durable `conversation_events` rows:
+The backend normalizes incoming MCP tool calls into durable `conversation_events` rows:
 
 - incoming requests
 - logs
@@ -24,7 +24,7 @@ Foreground Android sessions subscribe to `/api/events/stream`. Background delive
 
 ## Writing
 
-The Android app supports direct Poke sends with:
+The Android app sends to the backend. The backend forwards messages to Poke with:
 
 ```http
 POST https://poke.com/api/v1/inbound/api-message
@@ -32,7 +32,7 @@ Authorization: Bearer <POKE_API_KEY>
 Content-Type: application/json
 ```
 
-The backend also exposes `/api/messages/send` and a `JsonRpcClient` for tool/template/resource calls once account/session auth is available.
+`POKE_API_KEY` is a backend environment variable. The Android app does not need the key in normal mode.
 
 ## Ingest
 

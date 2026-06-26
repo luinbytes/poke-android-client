@@ -137,6 +137,8 @@ class BackendClient(
         val payload = obj.optJSONObject("payload") ?: obj
         val text = payload.optString("text", payload.optString("summary", raw))
         val type = obj.optString("eventType", "message")
+        val direction = payload.optString("direction")
+        val deliveryState = obj.optString("deliveryState")
         val actions = mutableListOf<RichAction>()
         payload.optJSONArray("actions")?.let { array ->
             for (index in 0 until array.length()) {
@@ -153,8 +155,17 @@ class BackendClient(
         return ChatMessage(
             id = obj.optString("eventId", UUID.randomUUID().toString()),
             text = text,
-            direction = if (type == "log" || type == "progress" || type == "status") MessageDirection.System else MessageDirection.Inbound,
-            status = MessageStatus.Received,
+            direction = when {
+                direction == "outbound" -> MessageDirection.Outbound
+                type == "log" || type == "progress" || type == "status" -> MessageDirection.System
+                else -> MessageDirection.Inbound
+            },
+            status = when (deliveryState) {
+                "queued" -> MessageStatus.Sending
+                "delivered" -> if (direction == "outbound") MessageStatus.Sent else MessageStatus.Received
+                "failed" -> MessageStatus.Failed
+                else -> MessageStatus.Received
+            },
             createdAt = System.currentTimeMillis(),
             actions = actions
         )

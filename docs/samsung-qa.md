@@ -20,7 +20,7 @@ Verified:
 - Setup screen can enter local QA mode without stored credentials.
 - Normal setup save with `http://127.0.0.1:8787` and `persist-qa` succeeds without ANR and relaunches into the connected chat path from encrypted settings.
 - App registers/listens against the local backend through ADB reverse.
-- Sending from chat without a backend or Poke API key fails cleanly with `Add a backend URL or Poke API key before sending`.
+- Sending from chat without a backend fails cleanly with `Add a backend URL and Poke user ID before sending`.
 - Failed outbound messages render a `Retry` chip.
 - Webhook-created events posted to `/webhooks/samsung-qa` appear in the app through `/api/events/stream`.
 - Rich action chips render from webhook payloads.
@@ -31,6 +31,6 @@ Verified:
 
 Notes:
 
-- Real direct Poke sends require a valid Poke API key from Poke Kitchen.
-- Real Poke receive requires connecting the backend to Poke's handler/SSE flow.
+- Real Poke sends require `POKE_API_KEY` on the backend.
+- Real Poke receive requires connecting the backend to Poke's MCP/SSE flow.
 - Background FCM delivery is represented by the backend `PushGateway` abstraction, but Firebase credentials are not wired in this local QA run.
