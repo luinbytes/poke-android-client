@@ -99,7 +99,8 @@ class PokeViewModel(application: Application) : AndroidViewModel(application) {
             runCatching {
                 backend.streamEvents(newSettings).collect(chat::add)
             }.onFailure { error ->
-                _uiState.update { it.copy(status = error.message ?: "Event stream disconnected") }
+                val detail = error.message?.takeIf { message -> message.isNotBlank() } ?: "unknown error"
+                _uiState.update { it.copy(status = "Event stream disconnected: $detail") }
             }
         }
     }
@@ -127,6 +128,7 @@ class PokeViewModel(application: Application) : AndroidViewModel(application) {
     fun clearConversation() {
         chat.clear()
         _uiState.update { it.copy(status = "Conversation cleared") }
+        sessionSettings?.let(::observeBackend)
     }
 
     private suspend fun connect(newSettings: AppSettings, saved: Boolean) {

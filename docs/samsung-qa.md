@@ -18,6 +18,7 @@ Verified:
 
 - Debug APK installs and launches on the Samsung.
 - Setup screen can enter local QA mode without stored credentials.
+- Normal setup save with `http://127.0.0.1:8787` and `persist-qa` succeeds without ANR and relaunches into the connected chat path from encrypted settings.
 - App registers/listens against the local backend through ADB reverse.
 - Sending from chat without a backend or Poke API key fails cleanly with `Add a backend URL or Poke API key before sending`.
 - Failed outbound messages render a `Retry` chip.
