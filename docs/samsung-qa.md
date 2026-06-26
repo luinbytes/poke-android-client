@@ -18,16 +18,21 @@ Verified:
 
 - Debug APK installs and launches on the Samsung.
 - Setup screen can enter local QA mode without stored credentials.
-- Normal setup save with `http://127.0.0.1:8787` and `persist-qa` succeeds without ANR and relaunches into the connected chat path from encrypted settings.
+- Setup screen no longer exposes a Poke API key field; the backend owns `POKE_API_KEY`.
+- Normal setup save with `http://127.0.0.1:8787` and `qa-samsung` succeeds without ANR and relaunches into the connected chat path from encrypted settings.
 - App registers/listens against the local backend through ADB reverse.
 - Sending from chat without a backend fails cleanly with `Add a backend URL and Poke user ID before sending`.
 - Failed outbound messages render a `Retry` chip.
+- Failed backend sends are merged into one outbound bubble instead of duplicating the local draft and streamed backend event.
+- Foreground SSE remains connected past OkHttp's default read timeout.
 - Webhook-created events posted to `/webhooks/samsung-qa` appear in the app through `/api/events/stream`.
+- MCP-created events sent through `/poke/sse` appear live in the app through `/api/events/stream`.
 - Rich action chips render from webhook payloads.
 - Tapping a rich action adds an outbound action acknowledgement in the conversation.
 - Backend-mediated sends from the composer create `conversation_events` rows.
 - App survives background/return.
 - App remains in chat after rotation during a local QA session.
+- Relaunch after saved setup lands in chat and replays backend history.
 
 Notes:
 

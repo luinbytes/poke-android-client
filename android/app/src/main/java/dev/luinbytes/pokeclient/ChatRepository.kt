@@ -22,6 +22,20 @@ class ChatRepository {
         _messages.update { messages -> messages.map { if (it.id == id) transform(it) else it } }
     }
 
+    fun replaceId(oldId: String, newId: String, transform: (ChatMessage) -> ChatMessage) {
+        seen.remove(oldId)
+        seen.add(newId)
+        _messages.update { messages ->
+            messages.mapNotNull { message ->
+                when (message.id) {
+                    oldId -> transform(message).copy(id = newId)
+                    newId -> null
+                    else -> message
+                }
+            }
+        }
+    }
+
     fun find(id: String): ChatMessage? = _messages.value.firstOrNull { it.id == id }
 
     fun clear() {

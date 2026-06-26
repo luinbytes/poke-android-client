@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -81,8 +82,12 @@ class PokeViewModel(application: Application) : AndroidViewModel(application) {
                         SendResult(false, "Add a backend URL and Poke user ID before sending")
                 }
             }.getOrElse { SendResult(false, it.message ?: "Send failed") }
-            chat.replace(messageId) {
-                it.copy(status = if (result.ok) MessageStatus.Sent else MessageStatus.Failed)
+            val status = if (result.ok) MessageStatus.Sent else MessageStatus.Failed
+            val eventId = result.eventId
+            if (eventId.isNullOrBlank()) {
+                chat.replace(messageId) { it.copy(status = status) }
+            } else {
+                chat.replaceId(messageId, eventId) { it.copy(status = status) }
             }
             _uiState.update { it.copy(sending = false, status = result.message ?: "Sent") }
         }
@@ -96,6 +101,7 @@ class PokeViewModel(application: Application) : AndroidViewModel(application) {
             runCatching {
                 backend.streamEvents(newSettings).collect(chat::add)
             }.onFailure { error ->
+                if (error is CancellationException) return@onFailure
                 val detail = error.message?.takeIf { message -> message.isNotBlank() } ?: "unknown error"
                 _uiState.update { it.copy(status = "Event stream disconnected: $detail") }
             }

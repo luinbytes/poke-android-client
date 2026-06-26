@@ -18,10 +18,15 @@ import java.io.IOException
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 class BackendClient(
     private val httpClient: OkHttpClient = OkHttpClient()
 ) {
+    private val streamClient = httpClient.newBuilder()
+        .readTimeout(0, TimeUnit.MILLISECONDS)
+        .build()
+
     suspend fun health(baseUrl: String): Boolean = withContext(Dispatchers.IO) {
         if (baseUrl.isBlank()) return@withContext false
         val request = Request.Builder()
@@ -99,7 +104,7 @@ class BackendClient(
             .url("${settings.backendBaseUrl.trimEnd('/')}/api/events/stream?pokeUserId=$encodedUser")
             .addHeader("Accept", "text/event-stream")
             .build()
-        val call = httpClient.newCall(request)
+        val call = streamClient.newCall(request)
         call.enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 close(e)

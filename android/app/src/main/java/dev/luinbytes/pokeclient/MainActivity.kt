@@ -74,6 +74,9 @@ fun PokeApp(viewModel: PokeViewModel, sharedText: String) {
 
     LaunchedEffect(settings.backendBaseUrl, settings.pokeUserId) {
         viewModel.observeBackend(settings)
+        if (settings.backendBaseUrl.isNotBlank() && settings.pokeUserId.isNotBlank()) {
+            setupVisible = false
+        }
     }
 
     Scaffold(
