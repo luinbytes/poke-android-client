@@ -53,6 +53,28 @@ JAVA_HOME=/usr/lib/jvm/java-17-openjdk ./gradlew :android:app:assembleDebug
 
 The debug APK is written to `android/app/build/outputs/apk/debug/`.
 
+## Tested State
+
+The current debug build has been exercised on a Samsung SM-S906E using a local backend over `adb reverse`.
+
+Verified locally:
+
+- APK install and launch
+- local backend registration/listening
+- webhook-created inbound events
+- rich action rendering and action taps
+- backend-mediated composer sends
+- background/return
+- rotation while in chat
+
+Requires real Poke credentials/access:
+
+- direct `https://poke.com/api/v1/inbound/api-message` sends with a Poke API key
+- production Poke handler/SSE connection
+- production Firebase Cloud Messaging delivery
+
+See [docs/samsung-qa.md](docs/samsung-qa.md) for the Samsung QA notes.
+
 ## Poke References
 
 - Poke API: https://poke.com/docs/api

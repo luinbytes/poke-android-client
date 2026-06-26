@@ -19,6 +19,11 @@ class ChatRepository {
         _messages.update { messages -> messages.map { if (it.id == id) transform(it) else it } }
     }
 
+    fun clear() {
+        seen.clear()
+        _messages.value = emptyList()
+    }
+
     fun outboundDraft(text: String): ChatMessage = ChatMessage(
         id = UUID.randomUUID().toString(),
         text = text,

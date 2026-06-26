@@ -5,7 +5,6 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -16,12 +15,22 @@ import okhttp3.Response
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.IOException
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 class BackendClient(
-    private val httpClient: OkHttpClient = OkHttpClient(),
-    private val json: Json = Json { ignoreUnknownKeys = true }
+    private val httpClient: OkHttpClient = OkHttpClient()
 ) {
+    suspend fun health(baseUrl: String): Boolean = withContext(Dispatchers.IO) {
+        if (baseUrl.isBlank()) return@withContext false
+        val request = Request.Builder()
+            .url("${baseUrl.trimEnd('/')}/health")
+            .get()
+            .build()
+        runCatching { httpClient.newCall(request).execute().use { it.isSuccessful } }.getOrDefault(false)
+    }
+
     suspend fun registerDevice(settings: AppSettings, deviceName: String): Boolean = withContext(Dispatchers.IO) {
         if (settings.backendBaseUrl.isBlank() || settings.pokeUserId.isBlank()) return@withContext false
         val body = JSONObject()
@@ -48,7 +57,31 @@ class BackendClient(
             .post(body)
             .build()
         httpClient.newCall(request).execute().use { response ->
-            SendResult(response.isSuccessful, if (response.isSuccessful) null else "Backend returned HTTP ${response.code}")
+            val body = response.body?.string().orEmpty()
+            val eventId = runCatching { JSONObject(body).optJSONObject("event")?.optString("eventId") }.getOrNull()
+            SendResult(response.isSuccessful, if (response.isSuccessful) null else "Backend returned HTTP ${response.code}", eventId)
+        }
+    }
+
+    suspend fun completeAction(settings: AppSettings, messageId: String, action: RichAction): SendResult = withContext(Dispatchers.IO) {
+        if (settings.backendBaseUrl.isBlank() || settings.pokeUserId.isBlank()) {
+            return@withContext SendResult(false, "Backend URL and Poke user ID are required for actions")
+        }
+        val payload = JSONObject()
+            .put("pokeUserId", settings.pokeUserId)
+            .put("messageId", messageId)
+            .put("actionId", action.id)
+            .put("type", action.type)
+            .put("label", action.label)
+            .put("payload", JSONObject(action.payload))
+            .toString()
+            .toRequestBody("application/json".toMediaType())
+        val request = Request.Builder()
+            .url("${settings.backendBaseUrl.trimEnd('/')}/api/actions/complete")
+            .post(payload)
+            .build()
+        httpClient.newCall(request).execute().use { response ->
+            SendResult(response.isSuccessful, if (response.isSuccessful) null else "Action failed with HTTP ${response.code}")
         }
     }
 
@@ -57,8 +90,9 @@ class BackendClient(
             close()
             return@callbackFlow
         }
+        val encodedUser = URLEncoder.encode(settings.pokeUserId, StandardCharsets.UTF_8.name())
         val request = Request.Builder()
-            .url("${settings.backendBaseUrl.trimEnd('/')}/api/events/stream?pokeUserId=${settings.pokeUserId}")
+            .url("${settings.backendBaseUrl.trimEnd('/')}/api/events/stream?pokeUserId=$encodedUser")
             .addHeader("Accept", "text/event-stream")
             .build()
         val call = httpClient.newCall(request)
@@ -98,12 +132,27 @@ class BackendClient(
         val obj = JSONObject(raw)
         val payload = obj.optJSONObject("payload") ?: obj
         val text = payload.optString("text", payload.optString("summary", raw))
+        val type = obj.optString("eventType", "message")
+        val actions = mutableListOf<RichAction>()
+        payload.optJSONArray("actions")?.let { array ->
+            for (index in 0 until array.length()) {
+                val action = array.optJSONObject(index) ?: continue
+                val payloadObject = action.optJSONObject("payload")
+                actions += RichAction(
+                    id = action.optString("id", UUID.randomUUID().toString()),
+                    type = action.optString("type", "quick_reply"),
+                    label = action.optString("label", "Action"),
+                    payload = payloadObject?.keys()?.asSequence()?.associateWith { key -> payloadObject.optString(key) }.orEmpty()
+                )
+            }
+        }
         return ChatMessage(
             id = obj.optString("eventId", UUID.randomUUID().toString()),
             text = text,
-            direction = MessageDirection.Inbound,
+            direction = if (type == "log" || type == "progress" || type == "status") MessageDirection.System else MessageDirection.Inbound,
             status = MessageStatus.Received,
-            createdAt = System.currentTimeMillis()
+            createdAt = System.currentTimeMillis(),
+            actions = actions
         )
     }
 }

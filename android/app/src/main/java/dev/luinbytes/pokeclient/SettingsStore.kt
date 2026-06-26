@@ -3,8 +3,10 @@ package dev.luinbytes.pokeclient
 import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 
 class SettingsStore(private val context: Context) {
     private val prefs by lazy {
@@ -20,16 +22,22 @@ class SettingsStore(private val context: Context) {
         )
     }
 
-    private val state = MutableStateFlow(read())
+    private val state = MutableStateFlow(AppSettings())
     val settings: Flow<AppSettings> = state
 
+    suspend fun load() = withContext(Dispatchers.IO) {
+        state.value = read()
+    }
+
     suspend fun save(settings: AppSettings) {
-        prefs.edit()
-            .putString(POKE_API_KEY, settings.pokeApiKey)
-            .putString(BACKEND_BASE_URL, settings.backendBaseUrl)
-            .putString(POKE_USER_ID, settings.pokeUserId)
-            .apply()
-        state.value = settings
+        withContext(Dispatchers.IO) {
+            prefs.edit()
+                .putString(POKE_API_KEY, settings.pokeApiKey)
+                .putString(BACKEND_BASE_URL, settings.backendBaseUrl)
+                .putString(POKE_USER_ID, settings.pokeUserId)
+                .commit()
+            state.value = settings
+        }
     }
 
     private fun read(): AppSettings {

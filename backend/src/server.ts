@@ -100,9 +100,26 @@ export function createApp(deps?: {
           return json(res, 401, { error: "unauthorized" });
         }
         const source = decodeURIComponent(url.pathname.slice("/webhooks/".length));
-        const payload = await readJson(req);
+        const payload = await readJson(req) as Record<string, unknown>;
         const id = db.insertLiveData({ source, payload, metadata: { userAgent: req.headers["user-agent"] } });
-        return json(res, 202, { id });
+        let event = null;
+        if (typeof payload.pokeUserId === "string" && payload.pokeUserId.trim().length > 0) {
+          event = db.insertEvent({
+            eventId: typeof payload.eventId === "string" ? payload.eventId : id,
+            pokeUserId: payload.pokeUserId,
+            eventType: typeof payload.type === "string" && isEventType(payload.type) ? payload.type : "notification",
+            payload: {
+              source,
+              text: typeof payload.text === "string" ? payload.text : `Webhook received from ${source}`,
+              summary: typeof payload.summary === "string" ? payload.summary : undefined,
+              actions: Array.isArray(payload.actions) ? payload.actions : []
+            },
+            correlationId: typeof payload.correlationId === "string" ? payload.correlationId : null
+          });
+          bus.publish(event);
+          await push.send(db.listDevices(event.pokeUserId), event);
+        }
+        return json(res, 202, { id, event });
       }
       if (req.method === "GET" && url.pathname === "/api/live-data/query") {
         return json(res, 200, {
@@ -184,6 +201,10 @@ function requiredQuery(url: URL, key: string): string {
 function json(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { "content-type": "application/json" });
   res.end(JSON.stringify(body));
+}
+
+function isEventType(value: string): value is "message" | "action" | "status" | "log" | "progress" | "notification" | "incoming_request" {
+  return ["message", "action", "status", "log", "progress", "notification", "incoming_request"].includes(value);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

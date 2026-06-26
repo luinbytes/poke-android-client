@@ -31,5 +31,13 @@ data class AppSettings(
 
 data class SendResult(
     val ok: Boolean,
-    val message: String? = null
+    val message: String? = null,
+    val eventId: String? = null
+)
+
+data class UiState(
+    val status: String = "Ready",
+    val setupSaved: Boolean = false,
+    val backendConnected: Boolean = false,
+    val sending: Boolean = false
 )
