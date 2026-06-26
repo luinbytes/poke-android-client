@@ -1,0 +1,15 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Poke Android Client icon">
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <path d="M256 146C149 146 88 205 88 280C88 333 122 376 177 394L161 462L238 413H258C363 413 424 355 424 280C424 205 363 146 256 146Z" fill="white"/>
+  <circle cx="209" cy="284" r="22" fill="#22A657"/>
+  <circle cx="258" cy="284" r="22" fill="#22A657"/>
+  <circle cx="307" cy="284" r="22" fill="#22A657"/>
+  <path d="M347 120C381 126 408 153 414 187" stroke="white" stroke-width="22" stroke-linecap="round" opacity=".72"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7BE18D"/>
+      <stop offset=".55" stop-color="#22A657"/>
+      <stop offset="1" stop-color="#08783E"/>
+    </linearGradient>
+  </defs>
+</svg>

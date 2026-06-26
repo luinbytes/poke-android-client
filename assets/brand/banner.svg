@@ -1,0 +1,55 @@
+<svg width="1600" height="500" viewBox="0 0 1600 500" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Poke Android Client banner</title>
+  <desc id="desc">A phone chat interface connected to a backend over event streams.</desc>
+  <rect width="1600" height="500" fill="#F8F7F4"/>
+  <circle cx="105" cy="-40" r="170" fill="#37A85D" fill-opacity=".22"/>
+  <circle cx="1245" cy="455" r="230" fill="#2574E8" fill-opacity=".10"/>
+  <circle cx="1518" cy="410" r="170" fill="#37A85D" fill-opacity=".10"/>
+  <g opacity=".42">
+    <path d="M1030 161C1141 87 1240 93 1327 180C1386 239 1430 244 1492 196" stroke="#37A85D" stroke-width="5" stroke-linecap="round"/>
+    <path d="M1037 217C1147 156 1247 160 1335 239C1390 288 1437 294 1504 246" stroke="#2574E8" stroke-width="5" stroke-linecap="round"/>
+    <path d="M1041 272C1142 235 1234 244 1315 307C1388 363 1448 351 1512 301" stroke="#36BFA6" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(88 148)">
+    <rect width="168" height="168" rx="38" fill="url(#appIcon)"/>
+    <path d="M84 51C45 51 24 72 24 99C24 119 38 135 60 141L54 164L82 146H89C126 146 146 126 146 99C146 72 123 51 84 51Z" fill="white"/>
+    <circle cx="68" cy="101" r="7" fill="#2BAE5A"/>
+    <circle cx="86" cy="101" r="7" fill="#2BAE5A"/>
+    <circle cx="104" cy="101" r="7" fill="#2BAE5A"/>
+  </g>
+  <text x="315" y="230" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="82" font-weight="800" fill="#10233F">Poke Android Client</text>
+  <text x="320" y="296" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="34" font-weight="500" fill="#526070">Native Android chat for Poke</text>
+  <g transform="translate(935 54)">
+    <rect x="0" y="0" width="282" height="414" rx="42" fill="#111827"/>
+    <rect x="12" y="14" width="258" height="386" rx="32" fill="white"/>
+    <circle cx="141" cy="33" r="10" fill="#111827"/>
+    <rect x="50" y="78" width="170" height="46" rx="18" fill="#DFF3E5"/>
+    <text x="71" y="106" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" fill="#14213D">Quick sync?</text>
+    <rect x="33" y="144" width="156" height="42" rx="18" fill="#F0F2F5"/>
+    <text x="52" y="170" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" fill="#14213D">Free now.</text>
+    <rect x="80" y="207" width="152" height="56" rx="18" fill="#DDEBFF"/>
+    <text x="99" y="234" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" fill="#14213D">Sending notes</text>
+    <text x="99" y="252" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14" fill="#14213D">in a minute.</text>
+    <rect x="30" y="285" width="222" height="34" rx="17" fill="#F8F9FB" stroke="#D9DEE7"/>
+    <rect x="30" y="334" width="54" height="28" rx="14" fill="#DFF3E5"/>
+    <rect x="92" y="334" width="67" height="28" rx="14" fill="#E8F0FF"/>
+    <rect x="167" y="334" width="74" height="28" rx="14" fill="#F4ECFF"/>
+  </g>
+  <g transform="translate(1295 172)">
+    <rect width="185" height="64" rx="16" fill="#DAE5F1"/>
+    <rect y="80" width="185" height="64" rx="16" fill="#CAD9E8"/>
+    <rect y="160" width="185" height="64" rx="16" fill="#B9CBDE"/>
+    <circle cx="28" cy="32" r="6" fill="#7893AD"/>
+    <rect x="126" y="27" width="38" height="10" rx="5" fill="#5BE083"/>
+    <circle cx="28" cy="112" r="6" fill="#7893AD"/>
+    <rect x="126" y="107" width="38" height="10" rx="5" fill="#5BE083"/>
+    <circle cx="28" cy="192" r="6" fill="#7893AD"/>
+    <rect x="126" y="187" width="38" height="10" rx="5" fill="#5BE083"/>
+  </g>
+  <defs>
+    <linearGradient id="appIcon" x1="0" y1="0" x2="168" y2="168" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6FD783"/>
+      <stop offset="1" stop-color="#08783E"/>
+    </linearGradient>
+  </defs>
+</svg>

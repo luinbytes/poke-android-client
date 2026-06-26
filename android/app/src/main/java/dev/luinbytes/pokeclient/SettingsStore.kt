@@ -1,0 +1,48 @@
+package dev.luinbytes.pokeclient
+
+import android.content.Context
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.Flow
+
+class SettingsStore(private val context: Context) {
+    private val prefs by lazy {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            context,
+            "secure_settings",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
+
+    private val state = MutableStateFlow(read())
+    val settings: Flow<AppSettings> = state
+
+    suspend fun save(settings: AppSettings) {
+        prefs.edit()
+            .putString(POKE_API_KEY, settings.pokeApiKey)
+            .putString(BACKEND_BASE_URL, settings.backendBaseUrl)
+            .putString(POKE_USER_ID, settings.pokeUserId)
+            .apply()
+        state.value = settings
+    }
+
+    private fun read(): AppSettings {
+        return AppSettings(
+            pokeApiKey = prefs.getString(POKE_API_KEY, "").orEmpty(),
+            backendBaseUrl = prefs.getString(BACKEND_BASE_URL, "").orEmpty(),
+            pokeUserId = prefs.getString(POKE_USER_ID, "").orEmpty()
+        )
+    }
+
+    companion object {
+        private const val POKE_API_KEY = "poke_api_key"
+        private const val BACKEND_BASE_URL = "backend_base_url"
+        private const val POKE_USER_ID = "poke_user_id"
+    }
+}

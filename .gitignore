@@ -1,0 +1,10 @@
+.gradle/
+.idea/
+*.iml
+local.properties
+android/app/build/
+backend/dist/
+backend/node_modules/
+backend/data/*.db
+backend/data/*.db-*
+*.log
