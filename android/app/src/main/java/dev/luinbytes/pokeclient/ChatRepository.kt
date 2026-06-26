@@ -6,16 +6,14 @@ import kotlinx.coroutines.flow.update
 import java.util.UUID
 
 class ChatRepository {
-    private val seen = mutableSetOf<String>()
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages
 
     fun add(message: ChatMessage) {
-        if (!seen.add(message.id)) {
-            replace(message.id) { message }
-            return
+        _messages.update { messages ->
+            if (messages.none { it.id == message.id }) messages + message
+            else messages.map { if (it.id == message.id) message else it }
         }
-        _messages.update { it + message }
     }
 
     fun replace(id: String, transform: (ChatMessage) -> ChatMessage) {
@@ -23,8 +21,6 @@ class ChatRepository {
     }
 
     fun replaceId(oldId: String, newId: String, transform: (ChatMessage) -> ChatMessage) {
-        seen.remove(oldId)
-        seen.add(newId)
         _messages.update { messages ->
             messages.mapNotNull { message ->
                 when (message.id) {
@@ -39,7 +35,6 @@ class ChatRepository {
     fun find(id: String): ChatMessage? = _messages.value.firstOrNull { it.id == id }
 
     fun clear() {
-        seen.clear()
         _messages.value = emptyList()
     }
 

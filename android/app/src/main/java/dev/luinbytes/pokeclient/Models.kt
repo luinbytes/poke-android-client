@@ -1,11 +1,8 @@
 package dev.luinbytes.pokeclient
 
-import kotlinx.serialization.Serializable
-
 enum class MessageDirection { Outbound, Inbound, System }
-enum class MessageStatus { Draft, Sending, Sent, Failed, Received }
+enum class MessageStatus { Sending, Sent, Failed, Received }
 
-@Serializable
 data class ChatMessage(
     val id: String,
     val text: String,
@@ -15,7 +12,6 @@ data class ChatMessage(
     val actions: List<RichAction> = emptyList()
 )
 
-@Serializable
 data class RichAction(
     val id: String,
     val type: String,

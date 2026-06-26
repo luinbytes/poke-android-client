@@ -21,14 +21,6 @@ const MessageSend = z.object({
   correlationId: z.string().optional()
 });
 
-const HandlerEvent = z.object({
-  eventId: z.string().optional(),
-  pokeUserId: z.string().optional(),
-  type: z.enum(["message", "action", "status", "log", "progress", "notification", "incoming_request"]).default("message"),
-  payload: z.unknown(),
-  correlationId: z.string().optional()
-});
-
 export function createApp(deps?: {
   db?: AppDatabase;
   bus?: EventBus;
@@ -91,20 +83,6 @@ export function createApp(deps?: {
       if (req.method === "POST" && url.pathname === "/api/actions/complete") {
         const body = await readJson(req);
         return json(res, 202, { accepted: true, body });
-      }
-      if (req.method === "POST" && url.pathname === "/api/poke/handler") {
-        const pokeUserId = String(req.headers["x-poke-user-id"] ?? "");
-        const input = HandlerEvent.parse(await readJson(req));
-        const event = db.insertEvent({
-          eventId: input.eventId,
-          pokeUserId: input.pokeUserId ?? pokeUserId,
-          eventType: input.type,
-          payload: input.payload,
-          correlationId: input.correlationId ?? null
-        });
-        bus.publish(event);
-        await push.send(db.listDevices(event.pokeUserId), event);
-        return json(res, 202, { event });
       }
       if (req.method === "POST" && url.pathname.startsWith("/webhooks/")) {
         if (env.webhookSecret && req.headers.authorization !== `Bearer ${env.webhookSecret}`) {

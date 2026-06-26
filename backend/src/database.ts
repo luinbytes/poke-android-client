@@ -201,18 +201,6 @@ export class AppDatabase {
         metadata_json TEXT NOT NULL,
         created_at TEXT NOT NULL
       );
-
-      CREATE TABLE IF NOT EXISTS outbound_operations (
-        id TEXT PRIMARY KEY,
-        method TEXT NOT NULL,
-        params_json TEXT NOT NULL,
-        correlation_id TEXT,
-        retry_state TEXT NOT NULL,
-        result_json TEXT,
-        error_json TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
     `);
   }
 }

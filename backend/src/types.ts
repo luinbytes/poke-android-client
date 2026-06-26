@@ -28,5 +28,3 @@ export type Device = {
   active: boolean;
   lastSeenAt: string;
 };
-
-export type HandlerKind = "incoming_request" | "log" | "progress" | "notification";
