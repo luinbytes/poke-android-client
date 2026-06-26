@@ -117,7 +117,8 @@ fun PokeApp(viewModel: PokeViewModel, sharedText: String) {
                         viewModel.send(draft)
                         draft = ""
                     },
-                    onAction = viewModel::performAction
+                    onAction = viewModel::performAction,
+                    onRetry = viewModel::retry
                 )
             }
         }
@@ -193,7 +194,8 @@ fun ChatPane(
     draft: String,
     onDraftChange: (String) -> Unit,
     onSend: () -> Unit,
-    onAction: (String, RichAction) -> Unit
+    onAction: (String, RichAction) -> Unit,
+    onRetry: (String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         if (messages.isEmpty()) {
@@ -208,7 +210,7 @@ fun ChatPane(
             ) {
                 item { Spacer(Modifier.height(8.dp)) }
                 items(messages, key = { it.id }) { message ->
-                    MessageBubble(message, onAction)
+                    MessageBubble(message, onAction, onRetry)
                 }
             }
         }
@@ -253,7 +255,11 @@ fun EmptyState(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun MessageBubble(message: ChatMessage, onAction: (String, RichAction) -> Unit) {
+fun MessageBubble(
+    message: ChatMessage,
+    onAction: (String, RichAction) -> Unit,
+    onRetry: (String) -> Unit
+) {
     val outbound = message.direction == MessageDirection.Outbound
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -280,6 +286,13 @@ fun MessageBubble(message: ChatMessage, onAction: (String, RichAction) -> Unit) 
                     style = MaterialTheme.typography.labelSmall,
                     color = Color(0xFF667085)
                 )
+                if (message.direction == MessageDirection.Outbound && message.status == MessageStatus.Failed) {
+                    Spacer(Modifier.height(6.dp))
+                    AssistChip(
+                        onClick = { onRetry(message.id) },
+                        label = { Text("Retry") }
+                    )
+                }
                 if (message.actions.isNotEmpty()) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         message.actions.forEach { action ->

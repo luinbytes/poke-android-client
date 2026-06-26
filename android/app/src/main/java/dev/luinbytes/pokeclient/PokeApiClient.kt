@@ -22,9 +22,20 @@ class PokeApiClient(
             .post(body)
             .build()
         httpClient.newCall(request).execute().use { response ->
+            val responseBody = response.body?.string().orEmpty()
             SendResult(
                 ok = response.isSuccessful,
-                message = if (response.isSuccessful) null else "Poke API returned HTTP ${response.code}"
+                message = if (response.isSuccessful) null else buildString {
+                    append("Poke API returned HTTP ${response.code}")
+                    if (response.code == 401 || response.code == 403) {
+                        append(". Check your Poke API key.")
+                    } else if (response.code == 429) {
+                        append(". Rate limited; try again shortly.")
+                    } else if (responseBody.isNotBlank()) {
+                        append(": ")
+                        append(responseBody.take(160))
+                    }
+                }
             )
         }
     }

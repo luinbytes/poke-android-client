@@ -61,6 +61,7 @@ Verified locally:
 
 - APK install and launch
 - local backend registration/listening
+- clear no-credential send failure with retry affordance
 - webhook-created inbound events
 - rich action rendering and action taps
 - backend-mediated composer sends

@@ -19,6 +19,8 @@ class ChatRepository {
         _messages.update { messages -> messages.map { if (it.id == id) transform(it) else it } }
     }
 
+    fun find(id: String): ChatMessage? = _messages.value.firstOrNull { it.id == id }
+
     fun clear() {
         seen.clear()
         _messages.value = emptyList()

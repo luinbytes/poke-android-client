@@ -59,7 +59,11 @@ class BackendClient(
         httpClient.newCall(request).execute().use { response ->
             val body = response.body?.string().orEmpty()
             val eventId = runCatching { JSONObject(body).optJSONObject("event")?.optString("eventId") }.getOrNull()
-            SendResult(response.isSuccessful, if (response.isSuccessful) null else "Backend returned HTTP ${response.code}", eventId)
+            SendResult(
+                response.isSuccessful,
+                if (response.isSuccessful) null else "Backend returned HTTP ${response.code}${body.takeIf { it.isNotBlank() }?.let { ": ${it.take(160)}" }.orEmpty()}",
+                eventId
+            )
         }
     }
 

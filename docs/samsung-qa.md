@@ -19,6 +19,8 @@ Verified:
 - Debug APK installs and launches on the Samsung.
 - Setup screen can enter local QA mode without stored credentials.
 - App registers/listens against the local backend through ADB reverse.
+- Sending from chat without a backend or Poke API key fails cleanly with `Add a backend URL or Poke API key before sending`.
+- Failed outbound messages render a `Retry` chip.
 - Webhook-created events posted to `/webhooks/samsung-qa` appear in the app through `/api/events/stream`.
 - Rich action chips render from webhook payloads.
 - Tapping a rich action adds an outbound action acknowledgement in the conversation.

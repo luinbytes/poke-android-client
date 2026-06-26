@@ -59,6 +59,17 @@ class PokeViewModel(application: Application) : AndroidViewModel(application) {
         if (trimmed.isEmpty()) return
 
         val message = chat.outboundDraft(trimmed)
+        sendExisting(message.id, trimmed)
+    }
+
+    fun retry(messageId: String) {
+        val message = chat.find(messageId) ?: return
+        if (message.direction != MessageDirection.Outbound) return
+        sendExisting(message.id, message.text)
+    }
+
+    private fun sendExisting(messageId: String, text: String) {
+        chat.replace(messageId) { it.copy(status = MessageStatus.Sending) }
         _uiState.update { it.copy(sending = true, status = "Sending...") }
 
         viewModelScope.launch {
@@ -66,14 +77,14 @@ class PokeViewModel(application: Application) : AndroidViewModel(application) {
             val result = runCatching {
                 when {
                     current.backendBaseUrl.isNotBlank() && current.pokeUserId.isNotBlank() ->
-                        backend.sendViaBackend(current, trimmed)
+                        backend.sendViaBackend(current, text)
                     current.pokeApiKey.isNotBlank() ->
-                        pokeApi.send(current.pokeApiKey, trimmed)
+                        pokeApi.send(current.pokeApiKey, text)
                     else ->
                         SendResult(false, "Add a backend URL or Poke API key before sending")
                 }
             }.getOrElse { SendResult(false, it.message ?: "Send failed") }
-            chat.replace(message.id) {
+            chat.replace(messageId) {
                 it.copy(status = if (result.ok) MessageStatus.Sent else MessageStatus.Failed)
             }
             _uiState.update { it.copy(sending = false, status = result.message ?: "Sent") }
@@ -85,7 +96,11 @@ class PokeViewModel(application: Application) : AndroidViewModel(application) {
         streamJob?.cancel()
         streamJob = viewModelScope.launch {
             _uiState.update { it.copy(status = "Listening for Poke events...") }
-            backend.streamEvents(newSettings).collect(chat::add)
+            runCatching {
+                backend.streamEvents(newSettings).collect(chat::add)
+            }.onFailure { error ->
+                _uiState.update { it.copy(status = error.message ?: "Event stream disconnected") }
+            }
         }
     }
 
