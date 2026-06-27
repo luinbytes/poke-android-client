@@ -1,16 +1,21 @@
 package dev.luinbytes.pokeclient
 
+import android.app.Activity
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color as AndroidColor
 import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.RadialGradient
 import android.graphics.Shader
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsetsController
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,6 +23,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,6 +53,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -55,6 +62,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,6 +79,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -104,6 +113,7 @@ private sealed class ConversationRow {
 }
 
 private val LocalGlassSource = staticCompositionLocalOf<ViewGroup?> { null }
+private val LocalDarkMode = staticCompositionLocalOf { false }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -113,6 +123,8 @@ private fun PokeApp(viewModel: PokeViewModel, intent: Intent?) {
     val uiState by viewModel.uiState.collectAsState()
     var setupVisible by rememberSaveable { mutableStateOf(settings.backendBaseUrl.isBlank()) }
     var glassSource by remember { mutableStateOf<ViewGroup?>(null) }
+    val darkMode = isSystemInDarkTheme()
+    val view = LocalView.current
 
     LaunchedEffect(settings.backendBaseUrl, settings.pokeUserId) {
         if (settings.backendBaseUrl.isNotBlank() && settings.pokeUserId.isNotBlank()) {
@@ -121,23 +133,34 @@ private fun PokeApp(viewModel: PokeViewModel, intent: Intent?) {
         }
     }
 
+    SideEffect {
+        val window = view.context.findActivity()?.window
+        val lightSystemBars = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
+            WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+        window?.statusBarColor = AndroidColor.TRANSPARENT
+        window?.navigationBarColor = AndroidColor.TRANSPARENT
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window?.isNavigationBarContrastEnforced = false
+        }
+        window?.insetsController?.setSystemBarsAppearance(
+            if (darkMode) 0 else lightSystemBars,
+            lightSystemBars
+        )
+    }
+
     MaterialTheme {
-        CompositionLocalProvider(LocalGlassSource provides glassSource) {
+        CompositionLocalProvider(
+            LocalGlassSource provides glassSource,
+            LocalDarkMode provides darkMode
+        ) {
             Box(Modifier.fillMaxSize()) {
                 AndroidView(
                     modifier = Modifier.matchParentSize(),
                     factory = { context ->
                         FrameLayout(context).apply {
-                            background = GradientDrawable(
-                                GradientDrawable.Orientation.TL_BR,
-                                intArrayOf(
-                                    AndroidColor.rgb(248, 251, 255),
-                                    AndroidColor.rgb(234, 249, 243),
-                                    AndroidColor.rgb(255, 248, 250)
-                                )
-                            )
+                            setGlassBackground(darkMode)
                             addView(
-                                GlassBackdropView(context),
+                                GlassBackdropView(context).apply { this.darkMode = darkMode },
                                 FrameLayout.LayoutParams(
                                     FrameLayout.LayoutParams.MATCH_PARENT,
                                     FrameLayout.LayoutParams.MATCH_PARENT
@@ -146,7 +169,11 @@ private fun PokeApp(viewModel: PokeViewModel, intent: Intent?) {
                             glassSource = this
                         }
                     },
-                    update = { glassSource = it }
+                    update = {
+                        it.setGlassBackground(darkMode)
+                        (it.getChildAt(0) as? GlassBackdropView)?.darkMode = darkMode
+                        glassSource = it
+                    }
                 )
                 Scaffold(
                     containerColor = Color.Transparent,
@@ -197,6 +224,12 @@ private fun PokeApp(viewModel: PokeViewModel, intent: Intent?) {
     }
 }
 
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
 @Composable
 private fun ChatHeader(
     status: String,
@@ -204,6 +237,8 @@ private fun ChatHeader(
     onSetup: () -> Unit,
     onClear: () -> Unit
 ) {
+    val primaryText = appPrimaryText()
+    val secondaryText = appSecondaryText()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -235,10 +270,10 @@ private fun ChatHeader(
                         .weight(1f)
                         .padding(start = 12.dp)
                 ) {
-                    Text("Poke", fontWeight = FontWeight.Bold, color = Color(0xFF101828))
+                    Text("Poke", fontWeight = FontWeight.Bold, color = primaryText)
                     Text(
                         status,
-                        color = Color(0xFF667085),
+                        color = secondaryText,
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -251,8 +286,8 @@ private fun ChatHeader(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onClear) { Text("Clear") }
-                TextButton(onClick = onSetup) { Text("Setup") }
+                TextButton(onClick = onClear) { Text("Clear", color = primaryText) }
+                TextButton(onClick = onSetup) { Text("Setup", color = primaryText) }
             }
         }
     }
@@ -273,10 +308,12 @@ private fun Conversation(
     }
 
     if (rows.isEmpty()) {
+        val primaryText = appPrimaryText()
+        val secondaryText = appSecondaryText()
         Box(modifier, contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("No messages yet", fontWeight = FontWeight.Bold, color = Color(0xFF101828))
-                Text("Send a message when Poke is connected.", color = Color(0xFF667085))
+                Text("No messages yet", fontWeight = FontWeight.Bold, color = primaryText)
+                Text("Send a message when Poke is connected.", color = secondaryText)
             }
         }
         return
@@ -387,6 +424,8 @@ private fun MessageBubble(
 @Composable
 private fun Composer(sending: Boolean, initialText: String, onSend: (String) -> Unit) {
     var text by rememberSaveable(initialText) { mutableStateOf(initialText) }
+    val primaryText = appPrimaryText()
+    val secondaryText = appSecondaryText()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -405,12 +444,12 @@ private fun Composer(sending: Boolean, initialText: String, onSend: (String) -> 
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 18.dp),
-                textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFF344054)),
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = primaryText),
                 minLines = 1,
                 maxLines = 5,
                 decorationBox = { innerTextField ->
                     if (text.isBlank()) {
-                        Text("Message Poke", color = Color(0xFF667085), style = MaterialTheme.typography.bodyLarge)
+                        Text("Message Poke", color = secondaryText, style = MaterialTheme.typography.bodyLarge)
                     }
                     innerTextField()
                 }
@@ -436,7 +475,7 @@ private fun Composer(sending: Boolean, initialText: String, onSend: (String) -> 
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     if (sending) "..." else "Send",
-                    color = Color(0xFF344054).copy(alpha = if (text.isNotBlank() && !sending) 1f else 0.58f),
+                    color = primaryText.copy(alpha = if (text.isNotBlank() && !sending) 1f else 0.58f),
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1
                 )
@@ -453,6 +492,19 @@ private fun SetupSheet(
 ) {
     var backendUrl by rememberSaveable(settings.backendBaseUrl) { mutableStateOf(settings.backendBaseUrl) }
     var pokeUserId by rememberSaveable(settings.pokeUserId) { mutableStateOf(settings.pokeUserId) }
+    val primaryText = appPrimaryText()
+    val secondaryText = appSecondaryText()
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = primaryText,
+        unfocusedTextColor = primaryText,
+        focusedLabelColor = secondaryText,
+        unfocusedLabelColor = secondaryText,
+        cursorColor = primaryText,
+        focusedBorderColor = secondaryText.copy(alpha = 0.74f),
+        unfocusedBorderColor = secondaryText.copy(alpha = 0.58f),
+        focusedContainerColor = Color.Transparent,
+        unfocusedContainerColor = Color.Transparent
+    )
 
     LiquidGlassSurface(
         modifier = Modifier
@@ -467,12 +519,13 @@ private fun SetupSheet(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Connect Poke", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+            Text("Connect Poke", color = primaryText, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
             OutlinedTextField(
                 value = backendUrl,
                 onValueChange = { backendUrl = it },
                 label = { Text("Backend URL") },
                 singleLine = true,
+                colors = fieldColors,
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
@@ -480,6 +533,7 @@ private fun SetupSheet(
                 onValueChange = { pokeUserId = it },
                 label = { Text("Poke user ID") },
                 singleLine = true,
+                colors = fieldColors,
                 modifier = Modifier.fillMaxWidth()
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -487,7 +541,7 @@ private fun SetupSheet(
                     Text("Save")
                 }
                 TextButton(onClick = onUseLocal) {
-                    Text("Local QA")
+                    Text("Local QA", color = primaryText)
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -503,10 +557,11 @@ private fun LiquidGlassSurface(
 ) {
     val density = LocalDensity.current
     val source = LocalGlassSource.current
+    val darkMode = LocalDarkMode.current
     val cornerPx = with(density) { cornerRadius.toPx() }
-    val refractionHeightPx = with(density) { 22.dp.toPx() }
-    val refractionOffsetPx = with(density) { 76.dp.toPx() }
-    val blurRadiusPx = with(density) { 8.dp.toPx() }
+    val refractionHeightPx = with(density) { if (darkMode) 26.dp.toPx() else 22.dp.toPx() }
+    val refractionOffsetPx = with(density) { if (darkMode) 92.dp.toPx() else 76.dp.toPx() }
+    val blurRadiusPx = with(density) { if (darkMode) 2.dp.toPx() else 8.dp.toPx() }
 
     Box(
         modifier
@@ -523,26 +578,26 @@ private fun LiquidGlassSurface(
                 drawRoundRect(
                     brush = Brush.linearGradient(
                         colors = listOf(
-                            Color.White.copy(alpha = 0.96f),
-                            Color.White.copy(alpha = 0.28f),
+                            Color.White.copy(alpha = if (darkMode) 0.48f else 0.38f),
+                            Color.White.copy(alpha = if (darkMode) 0.12f else 0.10f),
                             Color.Transparent
                         ),
                         start = Offset.Zero,
                         end = Offset(size.width, size.height)
                     ),
                     cornerRadius = CornerRadius(radius, radius),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.4.dp.toPx())
-                )
-                drawRoundRect(
-                    color = Color.Black.copy(alpha = 0.18f),
-                    cornerRadius = CornerRadius(radius, radius),
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
                 )
+                drawRoundRect(
+                    color = if (darkMode) Color.Black.copy(alpha = 0.20f) else Color.Black.copy(alpha = 0.14f),
+                    cornerRadius = CornerRadius(radius, radius),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.6.dp.toPx())
+                )
                 drawLine(
-                    color = Color.White.copy(alpha = 0.48f),
+                    color = Color.White.copy(alpha = if (darkMode) 0.52f else 0.36f),
                     start = Offset(size.width * 0.08f, 1.4.dp.toPx()),
-                    end = Offset(size.width * 0.82f, 1.4.dp.toPx()),
-                    strokeWidth = 1.dp.toPx()
+                    end = Offset(size.width * 0.72f, 1.4.dp.toPx()),
+                    strokeWidth = 0.8.dp.toPx()
                 )
             },
     ) {
@@ -556,6 +611,14 @@ private fun LiquidGlassSurface(
             update = {
                 it.configureQmGlass(source, cornerPx, refractionHeightPx, refractionOffsetPx, blurRadiusPx)
             }
+        )
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(
+                    if (darkMode) Color.White.copy(alpha = 0.035f) else Color.White.copy(alpha = 0.015f),
+                    RoundedCornerShape(cornerRadius)
+                )
         )
         content()
     }
@@ -573,12 +636,44 @@ private fun LiquidGlassView.configureQmGlass(
     setRefractionHeight(refractionHeightPx)
     setRefractionOffset(refractionOffsetPx)
     setBlurRadius(blurRadiusPx)
-    setDispersion(0.55f)
+    setDispersion(0.62f)
     setTintAlpha(0.04f)
+}
+
+@Composable
+private fun appPrimaryText(): Color =
+    if (LocalDarkMode.current) Color(0xFFF6F8FF) else Color(0xFF101828)
+
+@Composable
+private fun appSecondaryText(): Color =
+    if (LocalDarkMode.current) Color(0xB8E7ECF8) else Color(0xFF667085)
+
+private fun FrameLayout.setGlassBackground(darkMode: Boolean) {
+    background = GradientDrawable(
+        GradientDrawable.Orientation.TL_BR,
+        if (darkMode) {
+            intArrayOf(
+                AndroidColor.rgb(5, 10, 22),
+                AndroidColor.rgb(11, 18, 31),
+                AndroidColor.rgb(19, 13, 22)
+            )
+        } else {
+            intArrayOf(
+                AndroidColor.rgb(248, 251, 255),
+                AndroidColor.rgb(234, 249, 243),
+                AndroidColor.rgb(255, 248, 250)
+            )
+        }
+    )
 }
 
 private class GlassBackdropView(context: Context) : View(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    var darkMode: Boolean = false
+        set(value) {
+            field = value
+            invalidate()
+        }
 
     override fun onDraw(canvas: Canvas) {
         val w = width.toFloat()
@@ -588,30 +683,67 @@ private class GlassBackdropView(context: Context) : View(context) {
             0f,
             w,
             h,
-            intArrayOf(
-                AndroidColor.rgb(248, 251, 255),
-                AndroidColor.rgb(232, 249, 241),
-                AndroidColor.rgb(255, 247, 252)
-            ),
+            if (darkMode) {
+                intArrayOf(
+                    AndroidColor.rgb(5, 10, 22),
+                    AndroidColor.rgb(9, 20, 27),
+                    AndroidColor.rgb(22, 13, 24)
+                )
+            } else {
+                intArrayOf(
+                    AndroidColor.rgb(248, 251, 255),
+                    AndroidColor.rgb(232, 249, 241),
+                    AndroidColor.rgb(255, 247, 252)
+                )
+            },
             null,
             Shader.TileMode.CLAMP
         )
         canvas.drawRect(0f, 0f, w, h, paint)
 
         paint.shader = null
-        paint.strokeWidth = 18f
-        val colors = intArrayOf(
-            AndroidColor.rgb(10, 132, 255),
-            AndroidColor.rgb(48, 209, 88),
-            AndroidColor.rgb(255, 55, 95)
-        )
-        for (i in -3..8) {
-            paint.color = colors[Math.floorMod(i, colors.size)]
-            paint.alpha = 10
-            val y = i * h / 7f
-            canvas.drawLine(-w * 0.2f, y, w * 1.2f, y + h * 0.34f, paint)
+        if (darkMode) {
+            drawBloom(canvas, w * 0.16f, h * 0.18f, w * 0.72f, AndroidColor.rgb(34, 120, 255), 70)
+            drawBloom(canvas, w * 0.90f, h * 0.12f, w * 0.62f, AndroidColor.rgb(220, 68, 122), 54)
+            drawBloom(canvas, w * 0.72f, h * 0.82f, w * 0.78f, AndroidColor.rgb(35, 180, 122), 50)
+            drawBloom(canvas, w * 0.26f, h * 0.96f, w * 0.52f, AndroidColor.rgb(116, 92, 255), 40)
+            drawBloom(canvas, w * 0.18f, h * 0.70f, w * 0.42f, AndroidColor.rgb(80, 120, 255), 42)
+            drawBloom(canvas, w * 0.92f, h * 0.66f, w * 0.46f, AndroidColor.rgb(255, 110, 180), 32)
+        } else {
+            paint.style = Paint.Style.STROKE
+            paint.strokeCap = Paint.Cap.ROUND
+            paint.strokeWidth = 18f
+            val colors = intArrayOf(
+                AndroidColor.rgb(10, 132, 255),
+                AndroidColor.rgb(48, 209, 88),
+                AndroidColor.rgb(255, 55, 95)
+            )
+            for (i in -3..8) {
+                paint.color = colors[Math.floorMod(i, colors.size)]
+                paint.alpha = 10
+                val y = i * h / 7f
+                canvas.drawLine(-w * 0.2f, y, w * 1.2f, y + h * 0.34f, paint)
+            }
         }
+        paint.style = Paint.Style.FILL
         paint.alpha = 255
+    }
+
+    private fun drawBloom(canvas: Canvas, cx: Float, cy: Float, radius: Float, color: Int, alpha: Int) {
+        paint.shader = RadialGradient(
+            cx,
+            cy,
+            radius,
+            intArrayOf(
+                AndroidColor.argb(alpha, AndroidColor.red(color), AndroidColor.green(color), AndroidColor.blue(color)),
+                AndroidColor.TRANSPARENT
+            ),
+            floatArrayOf(0f, 1f),
+            Shader.TileMode.CLAMP
+        )
+        paint.style = Paint.Style.FILL
+        paint.alpha = 255
+        canvas.drawCircle(cx, cy, radius, paint)
     }
 }
 
