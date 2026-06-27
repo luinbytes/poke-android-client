@@ -1,17 +1,27 @@
 package dev.luinbytes.pokeclient
 
 import android.content.Intent
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Color as AndroidColor
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Shader
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -43,6 +53,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -50,26 +61,22 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.kyant.backdrop.backdrops.LayerBackdrop
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
-import com.kyant.backdrop.highlight.Highlight
-import com.kyant.shapes.RoundedRectangle
+import androidx.compose.ui.viewinterop.AndroidView
+import com.qmdeve.liquidglass.widget.LiquidGlassView
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -96,6 +103,8 @@ private sealed class ConversationRow {
     data class Message(val value: ChatMessage) : ConversationRow()
 }
 
+private val LocalGlassSource = staticCompositionLocalOf<ViewGroup?> { null }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PokeApp(viewModel: PokeViewModel, intent: Intent?) {
@@ -103,6 +112,7 @@ private fun PokeApp(viewModel: PokeViewModel, intent: Intent?) {
     val messages by viewModel.messages.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     var setupVisible by rememberSaveable { mutableStateOf(settings.backendBaseUrl.isBlank()) }
+    var glassSource by remember { mutableStateOf<ViewGroup?>(null) }
 
     LaunchedEffect(settings.backendBaseUrl, settings.pokeUserId) {
         if (settings.backendBaseUrl.isNotBlank() && settings.pokeUserId.isNotBlank()) {
@@ -112,62 +122,75 @@ private fun PokeApp(viewModel: PokeViewModel, intent: Intent?) {
     }
 
     MaterialTheme {
-        val backdrop = rememberLayerBackdrop()
-        Box(Modifier.fillMaxSize()) {
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .layerBackdrop(backdrop)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(Color(0xFFF8FBFF), Color(0xFFEAF9F3), Color(0xFFFFF8FA))
+        CompositionLocalProvider(LocalGlassSource provides glassSource) {
+            Box(Modifier.fillMaxSize()) {
+                AndroidView(
+                    modifier = Modifier.matchParentSize(),
+                    factory = { context ->
+                        FrameLayout(context).apply {
+                            background = GradientDrawable(
+                                GradientDrawable.Orientation.TL_BR,
+                                intArrayOf(
+                                    AndroidColor.rgb(248, 251, 255),
+                                    AndroidColor.rgb(234, 249, 243),
+                                    AndroidColor.rgb(255, 248, 250)
+                                )
+                            )
+                            addView(
+                                GlassBackdropView(context),
+                                FrameLayout.LayoutParams(
+                                    FrameLayout.LayoutParams.MATCH_PARENT,
+                                    FrameLayout.LayoutParams.MATCH_PARENT
+                                )
+                            )
+                            glassSource = this
+                        }
+                    },
+                    update = { glassSource = it }
+                )
+                Scaffold(
+                    containerColor = Color.Transparent,
+                    topBar = {
+                        ChatHeader(
+                            status = uiState.status,
+                            connected = uiState.backendConnected,
+                            onSetup = { setupVisible = true },
+                            onClear = viewModel::clearConversation
                         )
-                    )
-            )
-            Scaffold(
-                containerColor = Color.Transparent,
-                topBar = {
-                    ChatHeader(
-                        backdrop = backdrop,
-                        status = uiState.status,
-                        connected = uiState.backendConnected,
-                        onSetup = { setupVisible = true },
-                        onClear = viewModel::clearConversation
-                    )
-                },
-                bottomBar = {
-                    Composer(
-                        backdrop = backdrop,
-                        sending = uiState.sending,
-                        initialText = intent?.getStringExtra(Intent.EXTRA_TEXT).orEmpty(),
-                        onSend = viewModel::send
+                    },
+                    bottomBar = {
+                        Composer(
+                            sending = uiState.sending,
+                            initialText = intent?.getStringExtra(Intent.EXTRA_TEXT).orEmpty(),
+                            onSend = viewModel::send
+                        )
+                    }
+                ) { padding ->
+                    Conversation(
+                        messages = messages,
+                        onRetry = viewModel::retry,
+                        onAction = viewModel::performAction,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
                     )
                 }
-            ) { padding ->
-                Conversation(
-                    messages = messages,
-                    onRetry = viewModel::retry,
-                    onAction = viewModel::performAction,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                )
-            }
 
-            if (setupVisible) {
-                ModalBottomSheet(
-                    onDismissRequest = { setupVisible = false },
-                    containerColor = Color.Transparent
-                ) {
-                    SetupSheet(
-                        backdrop = backdrop,
-                        settings = settings,
-                        onSave = viewModel::saveSettings,
-                        onUseLocal = {
-                            setupVisible = false
-                            viewModel.useLocalQaSettings()
-                        }
-                    )
+                if (setupVisible) {
+                    ModalBottomSheet(
+                        onDismissRequest = { setupVisible = false },
+                        containerColor = Color.Transparent,
+                        scrimColor = Color.Black.copy(alpha = 0.10f)
+                    ) {
+                        SetupSheet(
+                            settings = settings,
+                            onSave = viewModel::saveSettings,
+                            onUseLocal = {
+                                setupVisible = false
+                                viewModel.useLocalQaSettings()
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -176,7 +199,6 @@ private fun PokeApp(viewModel: PokeViewModel, intent: Intent?) {
 
 @Composable
 private fun ChatHeader(
-    backdrop: LayerBackdrop,
     status: String,
     connected: Boolean,
     onSetup: () -> Unit,
@@ -191,7 +213,6 @@ private fun ChatHeader(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         LiquidGlassSurface(
-            backdrop = backdrop,
             modifier = Modifier.weight(1f),
             cornerRadius = 34.dp
         ) {
@@ -225,7 +246,7 @@ private fun ChatHeader(
                 }
             }
         }
-        LiquidGlassSurface(backdrop = backdrop, cornerRadius = 28.dp) {
+        LiquidGlassSurface(cornerRadius = 28.dp) {
             Row(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -364,7 +385,7 @@ private fun MessageBubble(
 }
 
 @Composable
-private fun Composer(backdrop: LayerBackdrop, sending: Boolean, initialText: String, onSend: (String) -> Unit) {
+private fun Composer(sending: Boolean, initialText: String, onSend: (String) -> Unit) {
     var text by rememberSaveable(initialText) { mutableStateOf(initialText) }
     Row(
         modifier = Modifier
@@ -375,7 +396,6 @@ private fun Composer(backdrop: LayerBackdrop, sending: Boolean, initialText: Str
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         LiquidGlassSurface(
-            backdrop = backdrop,
             modifier = Modifier.weight(1f),
             cornerRadius = 34.dp
         ) {
@@ -397,7 +417,6 @@ private fun Composer(backdrop: LayerBackdrop, sending: Boolean, initialText: Str
             )
         }
         LiquidGlassSurface(
-            backdrop = backdrop,
             modifier = Modifier
                 .width(92.dp)
                 .height(64.dp)
@@ -428,7 +447,6 @@ private fun Composer(backdrop: LayerBackdrop, sending: Boolean, initialText: Str
 
 @Composable
 private fun SetupSheet(
-    backdrop: LayerBackdrop,
     settings: AppSettings,
     onSave: (AppSettings) -> Unit,
     onUseLocal: () -> Unit
@@ -437,7 +455,6 @@ private fun SetupSheet(
     var pokeUserId by rememberSaveable(settings.pokeUserId) { mutableStateOf(settings.pokeUserId) }
 
     LiquidGlassSurface(
-        backdrop = backdrop,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 10.dp),
@@ -480,53 +497,122 @@ private fun SetupSheet(
 
 @Composable
 private fun LiquidGlassSurface(
-    backdrop: LayerBackdrop,
     modifier: Modifier = Modifier,
     cornerRadius: Dp,
     content: @Composable BoxScope.() -> Unit
 ) {
+    val density = LocalDensity.current
+    val source = LocalGlassSource.current
+    val cornerPx = with(density) { cornerRadius.toPx() }
+    val refractionHeightPx = with(density) { 22.dp.toPx() }
+    val refractionOffsetPx = with(density) { 76.dp.toPx() }
+    val blurRadiusPx = with(density) { 8.dp.toPx() }
+
     Box(
         modifier
-            .drawBackdrop(
-                backdrop = backdrop,
-                shape = { RoundedRectangle(cornerRadius) },
-                effects = {
-                    vibrancy()
-                    blur(2.dp.toPx())
-                    lens(22.dp.toPx(), 46.dp.toPx(), depthEffect = true, chromaticAberration = true)
-                },
-                highlight = { Highlight.Default },
-                onDrawSurface = {
-                    drawRect(Color.White.copy(alpha = 0.18f))
-                    drawRect(
-                        brush = Brush.linearGradient(
-                            colors = listOf(Color.White.copy(alpha = 0.42f), Color.Transparent),
-                            start = Offset.Zero,
-                            end = Offset(size.width * 0.7f, size.height * 0.7f)
-                        )
-                    )
-                }
-            )
+            .graphicsLayer {
+                shadowElevation = 18.dp.toPx()
+                shape = RoundedCornerShape(cornerRadius)
+                clip = false
+                ambientShadowColor = Color.Black.copy(alpha = 0.12f)
+                spotShadowColor = Color.Black.copy(alpha = 0.16f)
+            }
             .drawWithContent {
                 drawContent()
                 val radius = cornerRadius.toPx()
                 drawRoundRect(
                     brush = Brush.linearGradient(
-                        colors = listOf(Color.White.copy(alpha = 0.82f), Color.Transparent),
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.96f),
+                            Color.White.copy(alpha = 0.28f),
+                            Color.Transparent
+                        ),
                         start = Offset.Zero,
                         end = Offset(size.width, size.height)
                     ),
                     cornerRadius = CornerRadius(radius, radius),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.6.dp.toPx())
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.4.dp.toPx())
                 )
                 drawRoundRect(
-                    color = Color.Black.copy(alpha = 0.10f),
+                    color = Color.Black.copy(alpha = 0.18f),
                     cornerRadius = CornerRadius(radius, radius),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.8.dp.toPx())
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
+                )
+                drawLine(
+                    color = Color.White.copy(alpha = 0.48f),
+                    start = Offset(size.width * 0.08f, 1.4.dp.toPx()),
+                    end = Offset(size.width * 0.82f, 1.4.dp.toPx()),
+                    strokeWidth = 1.dp.toPx()
                 )
             },
-        content = content
-    )
+    ) {
+        AndroidView(
+            modifier = Modifier.matchParentSize(),
+            factory = { context ->
+                LiquidGlassView(context).apply {
+                    configureQmGlass(source, cornerPx, refractionHeightPx, refractionOffsetPx, blurRadiusPx)
+                }
+            },
+            update = {
+                it.configureQmGlass(source, cornerPx, refractionHeightPx, refractionOffsetPx, blurRadiusPx)
+            }
+        )
+        content()
+    }
+}
+
+private fun LiquidGlassView.configureQmGlass(
+    source: ViewGroup?,
+    cornerPx: Float,
+    refractionHeightPx: Float,
+    refractionOffsetPx: Float,
+    blurRadiusPx: Float
+) {
+    bind(source)
+    setCornerRadius(cornerPx)
+    setRefractionHeight(refractionHeightPx)
+    setRefractionOffset(refractionOffsetPx)
+    setBlurRadius(blurRadiusPx)
+    setDispersion(0.55f)
+    setTintAlpha(0.04f)
+}
+
+private class GlassBackdropView(context: Context) : View(context) {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    override fun onDraw(canvas: Canvas) {
+        val w = width.toFloat()
+        val h = height.toFloat()
+        paint.shader = LinearGradient(
+            0f,
+            0f,
+            w,
+            h,
+            intArrayOf(
+                AndroidColor.rgb(248, 251, 255),
+                AndroidColor.rgb(232, 249, 241),
+                AndroidColor.rgb(255, 247, 252)
+            ),
+            null,
+            Shader.TileMode.CLAMP
+        )
+        canvas.drawRect(0f, 0f, w, h, paint)
+
+        paint.shader = null
+        paint.strokeWidth = 18f
+        val colors = intArrayOf(
+            AndroidColor.rgb(10, 132, 255),
+            AndroidColor.rgb(48, 209, 88),
+            AndroidColor.rgb(255, 55, 95)
+        )
+        for (i in -3..8) {
+            paint.color = colors[Math.floorMod(i, colors.size)]
+            paint.alpha = 10
+            val y = i * h / 7f
+            canvas.drawLine(-w * 0.2f, y, w * 1.2f, y + h * 0.34f, paint)
+        }
+        paint.alpha = 255
+    }
 }
 
 private fun conversationRows(messages: List<ChatMessage>): List<ConversationRow> {
