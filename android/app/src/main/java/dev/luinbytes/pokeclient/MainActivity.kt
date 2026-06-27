@@ -49,12 +49,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -494,17 +491,6 @@ private fun SetupSheet(
     var pokeUserId by rememberSaveable(settings.pokeUserId) { mutableStateOf(settings.pokeUserId) }
     val primaryText = appPrimaryText()
     val secondaryText = appSecondaryText()
-    val fieldColors = OutlinedTextFieldDefaults.colors(
-        focusedTextColor = primaryText,
-        unfocusedTextColor = primaryText,
-        focusedLabelColor = secondaryText,
-        unfocusedLabelColor = secondaryText,
-        cursorColor = primaryText,
-        focusedBorderColor = secondaryText.copy(alpha = 0.74f),
-        unfocusedBorderColor = secondaryText.copy(alpha = 0.58f),
-        focusedContainerColor = Color.Transparent,
-        unfocusedContainerColor = Color.Transparent
-    )
 
     LiquidGlassSurface(
         modifier = Modifier
@@ -520,33 +506,88 @@ private fun SetupSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text("Connect Poke", color = primaryText, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-            OutlinedTextField(
+            SetupGlassTextField(
                 value = backendUrl,
                 onValueChange = { backendUrl = it },
-                label = { Text("Backend URL") },
-                singleLine = true,
-                colors = fieldColors,
-                modifier = Modifier.fillMaxWidth()
+                placeholder = "Backend URL",
+                primaryText = primaryText,
+                secondaryText = secondaryText
             )
-            OutlinedTextField(
+            SetupGlassTextField(
                 value = pokeUserId,
                 onValueChange = { pokeUserId = it },
-                label = { Text("Poke user ID") },
-                singleLine = true,
-                colors = fieldColors,
-                modifier = Modifier.fillMaxWidth()
+                placeholder = "Poke user ID",
+                primaryText = primaryText,
+                secondaryText = secondaryText
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { onSave(AppSettings(backendUrl.trim(), pokeUserId.trim())) }) {
-                    Text("Save")
+                SetupGlassButton(onClick = { onSave(AppSettings(backendUrl.trim(), pokeUserId.trim())) }) {
+                    Text("Save", color = primaryText, fontWeight = FontWeight.SemiBold)
                 }
-                TextButton(onClick = onUseLocal) {
-                    Text("Local QA", color = primaryText)
+                SetupGlassButton(onClick = onUseLocal) {
+                    Text("Local QA", color = primaryText, fontWeight = FontWeight.SemiBold)
                 }
             }
             Spacer(Modifier.height(8.dp))
         }
     }
+}
+
+@Composable
+private fun SetupGlassTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    primaryText: Color,
+    secondaryText: Color
+) {
+    LiquidGlassSurface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(58.dp),
+        cornerRadius = 18.dp
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodyLarge.copy(color = primaryText),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            decorationBox = { innerTextField ->
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
+                    if (value.isBlank()) {
+                        Text(placeholder, color = secondaryText, style = MaterialTheme.typography.bodyLarge)
+                    }
+                    innerTextField()
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SetupGlassButton(
+    onClick: () -> Unit,
+    content: @Composable BoxScope.() -> Unit
+) {
+    LiquidGlassSurface(
+        modifier = Modifier
+            .height(48.dp)
+            .width(124.dp)
+            .clickable(onClick = onClick),
+        cornerRadius = 24.dp,
+        content = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 18.dp),
+                contentAlignment = Alignment.Center,
+                content = content
+            )
+        }
+    )
 }
 
 @Composable
@@ -558,10 +599,11 @@ private fun LiquidGlassSurface(
     val density = LocalDensity.current
     val source = LocalGlassSource.current
     val darkMode = LocalDarkMode.current
+    val style = if (darkMode) DarkLiquidGlassStyle else LightLiquidGlassStyle
     val cornerPx = with(density) { cornerRadius.toPx() }
-    val refractionHeightPx = with(density) { if (darkMode) 26.dp.toPx() else 22.dp.toPx() }
-    val refractionOffsetPx = with(density) { if (darkMode) 92.dp.toPx() else 76.dp.toPx() }
-    val blurRadiusPx = with(density) { if (darkMode) 2.dp.toPx() else 8.dp.toPx() }
+    val refractionHeightPx = with(density) { style.refractionHeight.toPx() }
+    val refractionOffsetPx = with(density) { style.refractionOffset.toPx() }
+    val blurRadiusPx = with(density) { style.blurRadius.toPx() }
 
     Box(
         modifier
@@ -578,26 +620,32 @@ private fun LiquidGlassSurface(
                 drawRoundRect(
                     brush = Brush.linearGradient(
                         colors = listOf(
-                            Color.White.copy(alpha = if (darkMode) 0.48f else 0.38f),
-                            Color.White.copy(alpha = if (darkMode) 0.12f else 0.10f),
+                            Color.White.copy(alpha = style.edgeShineAlpha),
+                            Color.White.copy(alpha = style.edgeMidAlpha),
                             Color.Transparent
                         ),
                         start = Offset.Zero,
                         end = Offset(size.width, size.height)
                     ),
                     cornerRadius = CornerRadius(radius, radius),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.65.dp.toPx())
                 )
                 drawRoundRect(
-                    color = if (darkMode) Color.Black.copy(alpha = 0.20f) else Color.Black.copy(alpha = 0.14f),
+                    color = Color.Black.copy(alpha = style.edgeShadowAlpha),
                     cornerRadius = CornerRadius(radius, radius),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.6.dp.toPx())
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.45.dp.toPx())
                 )
-                drawLine(
-                    color = Color.White.copy(alpha = if (darkMode) 0.52f else 0.36f),
-                    start = Offset(size.width * 0.08f, 1.4.dp.toPx()),
-                    end = Offset(size.width * 0.72f, 1.4.dp.toPx()),
-                    strokeWidth = 0.8.dp.toPx()
+                drawRoundRect(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = style.innerShineAlpha),
+                            Color.Transparent,
+                            Color.Black.copy(alpha = style.innerShadowAlpha)
+                        ),
+                        start = Offset(size.width * 0.08f, 0f),
+                        end = Offset(size.width * 0.90f, size.height)
+                    ),
+                    cornerRadius = CornerRadius(radius, radius)
                 )
             },
     ) {
@@ -605,18 +653,18 @@ private fun LiquidGlassSurface(
             modifier = Modifier.matchParentSize(),
             factory = { context ->
                 LiquidGlassView(context).apply {
-                    configureQmGlass(source, cornerPx, refractionHeightPx, refractionOffsetPx, blurRadiusPx)
+                    configureQmGlass(source, cornerPx, refractionHeightPx, refractionOffsetPx, blurRadiusPx, style)
                 }
             },
             update = {
-                it.configureQmGlass(source, cornerPx, refractionHeightPx, refractionOffsetPx, blurRadiusPx)
+                it.configureQmGlass(source, cornerPx, refractionHeightPx, refractionOffsetPx, blurRadiusPx, style)
             }
         )
         Box(
             Modifier
                 .matchParentSize()
                 .background(
-                    if (darkMode) Color.White.copy(alpha = 0.035f) else Color.White.copy(alpha = 0.015f),
+                    Color.White.copy(alpha = style.overlayAlpha),
                     RoundedCornerShape(cornerRadius)
                 )
         )
@@ -629,16 +677,59 @@ private fun LiquidGlassView.configureQmGlass(
     cornerPx: Float,
     refractionHeightPx: Float,
     refractionOffsetPx: Float,
-    blurRadiusPx: Float
+    blurRadiusPx: Float,
+    style: LiquidGlassStyle
 ) {
     bind(source)
     setCornerRadius(cornerPx)
     setRefractionHeight(refractionHeightPx)
     setRefractionOffset(refractionOffsetPx)
     setBlurRadius(blurRadiusPx)
-    setDispersion(0.62f)
-    setTintAlpha(0.04f)
+    setDispersion(style.dispersion)
+    setTintAlpha(style.tintAlpha)
 }
+
+private data class LiquidGlassStyle(
+    val refractionHeight: Dp,
+    val refractionOffset: Dp,
+    val blurRadius: Dp,
+    val dispersion: Float,
+    val tintAlpha: Float,
+    val overlayAlpha: Float,
+    val edgeShineAlpha: Float,
+    val edgeMidAlpha: Float,
+    val edgeShadowAlpha: Float,
+    val innerShineAlpha: Float,
+    val innerShadowAlpha: Float
+)
+
+private val DarkLiquidGlassStyle = LiquidGlassStyle(
+    refractionHeight = 46.dp,
+    refractionOffset = 124.dp,
+    blurRadius = 0.01.dp,
+    dispersion = 0.92f,
+    tintAlpha = 0.04f,
+    overlayAlpha = 0f,
+    edgeShineAlpha = 0.30f,
+    edgeMidAlpha = 0.08f,
+    edgeShadowAlpha = 0.14f,
+    innerShineAlpha = 0.10f,
+    innerShadowAlpha = 0.10f
+)
+
+private val LightLiquidGlassStyle = LiquidGlassStyle(
+    refractionHeight = 22.dp,
+    refractionOffset = 76.dp,
+    blurRadius = 8.dp,
+    dispersion = 0.86f,
+    tintAlpha = 0.04f,
+    overlayAlpha = 0.015f,
+    edgeShineAlpha = 0.28f,
+    edgeMidAlpha = 0.08f,
+    edgeShadowAlpha = 0.10f,
+    innerShineAlpha = 0.07f,
+    innerShadowAlpha = 0.04f
+)
 
 @Composable
 private fun appPrimaryText(): Color =
