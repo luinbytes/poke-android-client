@@ -31,7 +31,7 @@ export function createApp(deps?: {
   const bus = deps?.bus ?? new EventBus();
   const push = new LoggingPushGateway();
   const pokeApi = deps?.pokeApi ?? new PokeApiClient(env.pokeApiKey);
-  const mcp = new PokeMcpBridge({ db, bus, push });
+  const mcp = new PokeMcpBridge({ db, bus, push, publicMcpBaseUrl: env.publicMcpBaseUrl });
 
   async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
@@ -115,10 +115,10 @@ export function createApp(deps?: {
           rows: db.queryLiveData(url.searchParams.get("source") ?? undefined, Number(url.searchParams.get("limit") ?? 50))
         });
       }
-      if (req.method === "GET" && url.pathname === "/poke/sse") {
+      if (req.method === "GET" && url.pathname.endsWith("/poke/sse")) {
         return await mcp.handleSse(req, res);
       }
-      if (req.method === "POST" && url.pathname === "/poke/messages") {
+      if (req.method === "POST" && url.pathname.endsWith("/poke/messages")) {
         return await mcp.handleMessage(req, res);
       }
       return json(res, 404, { error: "not_found" });

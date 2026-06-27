@@ -44,13 +44,12 @@ class PokeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun useLocalQaSettings() {
         viewModelScope.launch {
-            connect(
-                AppSettings(
-                    backendBaseUrl = "http://127.0.0.1:8787",
-                    pokeUserId = "qa-samsung"
-                ),
-                saved = false
+            val settings = AppSettings(
+                backendBaseUrl = "http://127.0.0.1:8787",
+                pokeUserId = "qa-samsung"
             )
+            settingsStore.save(settings)
+            connect(settings, saved = true)
         }
     }
 

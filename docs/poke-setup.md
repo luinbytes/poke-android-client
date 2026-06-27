@@ -40,8 +40,15 @@ adb reverse tcp:8787 tcp:8787
 Start the backend, expose it with Poke's tunnel flow, then register the MCP/SSE URL:
 
 ```bash
-npx poke@latest tunnel http://localhost:8787
-npx poke@latest mcp add https://YOUR_TUNNEL_HOST/poke/sse -n "Android Poke Client"
+npx poke@latest login
+npx poke@latest tunnel http://localhost:8787/poke/sse -n "Android Poke Client"
+```
+
+When using `tunnel.poke.com`, restart the backend with the tunnel base so the MCP
+SSE endpoint advertises the matching tunneled message URL:
+
+```bash
+PUBLIC_MCP_BASE_URL=https://tunnel.poke.com/YOUR_CONNECTION_ID/poke npm run dev
 ```
 
 The backend exposes these Poke-callable MCP tools:

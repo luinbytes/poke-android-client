@@ -15,6 +15,7 @@ type PokeMcpDeps = {
   db: AppDatabase;
   bus: EventBus;
   push: PushGateway;
+  publicMcpBaseUrl?: string;
 };
 
 const ToolPayload = z.record(z.string(), z.unknown()).optional();
@@ -31,7 +32,10 @@ export class PokeMcpBridge {
   constructor(private readonly deps: PokeMcpDeps) {}
 
   async handleSse(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const transport = new SSEServerTransport("/poke/messages", res);
+    const endpoint = this.deps.publicMcpBaseUrl
+      ? `${this.deps.publicMcpBaseUrl.replace(/\/$/, "")}/messages`
+      : "/poke/messages";
+    const transport = new SSEServerTransport(endpoint, res);
     this.transports.set(transport.sessionId, transport);
     transport.onclose = () => this.transports.delete(transport.sessionId);
     const server = this.buildServer();
