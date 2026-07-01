@@ -3,7 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import type { ServerNotification, ServerRequest } from "@modelcontextprotocol/sdk/types.js";
-import * as z from "zod/v4";
+import { z } from "zod";
 import type { AppDatabase } from "./database.js";
 import type { EventBus } from "./event-bus.js";
 import type { PushGateway } from "./push.js";
@@ -18,12 +18,12 @@ type PokeMcpDeps = {
   publicMcpBaseUrl?: string;
 };
 
-const ToolPayload = z.record(z.string(), z.unknown()).optional();
+const ToolPayload = z.record(z.string(), z.any()).optional();
 const ActionSchema = z.object({
   id: z.string().optional(),
   type: z.string().default("quick_reply"),
   label: z.string(),
-  payload: z.record(z.string(), z.unknown()).optional()
+  payload: z.record(z.string(), z.any()).optional()
 });
 
 export class PokeMcpBridge {
